@@ -5,9 +5,10 @@ import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
 
 class ActivityItem extends StatelessWidget {
-  const ActivityItem({super.key, required this.transaction});
+  const ActivityItem({super.key, required this.transaction, this.onLongPress});
 
   final Transaction transaction;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +24,7 @@ class ActivityItem extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.large),
       onTap: () {},
+      onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
         child: Row(

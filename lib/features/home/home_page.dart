@@ -1,30 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
+import '../../providers/transaction_providers.dart';
 import '../../shared/widgets/bottom_nav.dart';
 import '../transaction_history/history_page.dart';
-import 'data/mock_data.dart';
 import 'models/transaction.dart';
 import 'widgets/activity_item.dart';
 import 'widgets/add_transaction_modal.dart';
 import 'widgets/balance_card.dart';
 import 'widgets/stat_card.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
   BottomTab _activeTab = BottomTab.home;
   TransactionType? _filterType;
   String _dateFilter = 'This Month';
 
   @override
   Widget build(BuildContext context) {
+    final transactionsAsync = ref.watch(transactionsProvider);
+    final stats = ref.watch(statsProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
@@ -33,9 +37,20 @@ class _HomePageState extends State<HomePage> {
           Positioned.fill(
             child: SafeArea(
               bottom: false,
-              child: _activeTab == BottomTab.home
-                  ? _buildHome()
-                  : _buildHistory(),
+              child: transactionsAsync.when(
+                data: (items) => _activeTab == BottomTab.home
+                    ? _buildHome(items, stats)
+                    : _buildHistory(items),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(
+                  child: Text(
+                    'Failed to load transactions',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
           BottomNav(
@@ -47,8 +62,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildHome() {
-    final recentTransactions = transactions.take(5).toList();
+  Widget _buildHome(List<Transaction> items, HomeStats stats) {
+    final recentTransactions = items.take(5).toList();
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
       child: Column(
@@ -90,7 +105,10 @@ class _HomePageState extends State<HomePage> {
           Column(
             children: [
               for (final tx in recentTransactions)
-                ActivityItem(transaction: tx),
+                ActivityItem(
+                  transaction: tx,
+                  onLongPress: () => _showTransactionActions(tx),
+                ),
             ],
           ),
         ],
@@ -184,17 +202,18 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildHistory() {
+  Widget _buildHistory(List<Transaction> items) {
     return HistoryPage(
-      transactions: transactions,
+      transactions: items,
       activeType: _filterType,
       onTypeChange: (type) => setState(() => _filterType = type),
       activeDate: _dateFilter,
       onDateChange: (date) => setState(() => _dateFilter = date),
+      onTransactionLongPress: _showTransactionActions,
     );
   }
 
-  void _showAddSheet() {
+  void _showAddSheet({Transaction? initial}) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.modalBackground,
@@ -206,15 +225,86 @@ class _HomePageState extends State<HomePage> {
       ),
       builder: (context) {
         return AddTransactionModal(
+          initial: initial,
           onSubmit: (data) {
-            // Hook into state/database later.
-            // ignore: avoid_print
-            print(
-              'New transaction: ${data.type} ${data.description} ${data.amount}',
+            final transaction = Transaction(
+              id: data.id,
+              title: data.description,
+              category: data.category,
+              type: data.type,
+              amount: data.amount,
+              date: data.date,
             );
+            final notifier = ref.read(transactionsProvider.notifier);
+            if (transaction.id == null) {
+              notifier.add(transaction);
+            } else {
+              notifier.updateTransaction(transaction);
+            }
           },
         );
       },
     );
+  }
+
+  void _showTransactionActions(Transaction transaction) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceVariant,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit, color: AppColors.primary),
+                title: const Text('Edit'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showAddSheet(initial: transaction);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: AppColors.expense),
+                title: const Text('Delete'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _confirmDelete(transaction);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDelete(Transaction transaction) async {
+    final id = transaction.id;
+    if (id == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Delete transaction?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(transactionsProvider.notifier).deleteTransaction(id);
+    }
   }
 }

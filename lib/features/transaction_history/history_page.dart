@@ -13,6 +13,7 @@ class HistoryPage extends StatelessWidget {
     required this.onTypeChange,
     required this.activeDate,
     required this.onDateChange,
+    required this.onTransactionLongPress,
   });
 
   final List<Transaction> transactions;
@@ -20,6 +21,7 @@ class HistoryPage extends StatelessWidget {
   final ValueChanged<TransactionType?> onTypeChange;
   final String activeDate;
   final ValueChanged<String> onDateChange;
+  final ValueChanged<Transaction> onTransactionLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +79,10 @@ class HistoryPage extends StatelessWidget {
                       Column(
                         children: [
                           for (final tx in entry.value)
-                            ActivityItem(transaction: tx),
+                            ActivityItem(
+                              transaction: tx,
+                              onLongPress: () => onTransactionLongPress(tx),
+                            ),
                         ],
                       ),
                     ],

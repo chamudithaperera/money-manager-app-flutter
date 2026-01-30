@@ -5,9 +5,10 @@ import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
 
 class AddTransactionModal extends StatefulWidget {
-  const AddTransactionModal({super.key, required this.onSubmit});
+  const AddTransactionModal({super.key, required this.onSubmit, this.initial});
 
   final ValueChanged<TransactionFormData> onSubmit;
+  final Transaction? initial;
 
   @override
   State<AddTransactionModal> createState() => _AddTransactionModalState();
@@ -20,6 +21,30 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   DateTime _date = DateTime.now();
   String _category = 'other';
   bool _showCategoryPicker = false;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _amountController;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    if (initial != null) {
+      _type = initial.type;
+      _description = initial.title;
+      _amount = initial.amount.toStringAsFixed(2);
+      _date = initial.date;
+      _category = _categoryIdFromLabel(initial.category);
+    }
+    _descriptionController = TextEditingController(text: _description);
+    _amountController = TextEditingController(text: _amount);
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +52,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       (c) => c.id == _category,
       orElse: () => _categories.last,
     );
+    final isEditing = widget.initial != null;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -58,7 +84,10 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Add Transaction', style: AppTextStyles.modalTitle),
+                    Text(
+                      isEditing ? 'Edit Transaction' : 'Add Transaction',
+                      style: AppTextStyles.modalTitle,
+                    ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close),
@@ -98,7 +127,8 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                 _textField(
                   hint: 'e.g., Monthly salary, Grocery shopping...',
                   icon: Icons.description_outlined,
-                  onChanged: (value) => _description = value,
+                  controller: _descriptionController,
+                  onChanged: (value) => setState(() => _description = value),
                 ),
                 const SizedBox(height: 16),
                 _sectionLabel('Amount'),
@@ -108,7 +138,8 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                   icon: Icons.attach_money,
                   keyboardType: TextInputType.number,
                   prefixText: '${AppConstants.currencySymbol} ',
-                  onChanged: (value) => _amount = value,
+                  controller: _amountController,
+                  onChanged: (value) => setState(() => _amount = value),
                 ),
                 const SizedBox(height: 16),
                 _sectionLabel('Date'),
@@ -130,7 +161,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                       ),
                     ),
                     child: Text(
-                      'Add Transaction',
+                      isEditing ? 'Update Transaction' : 'Add Transaction',
                       style: AppTextStyles.buttonLabel.copyWith(
                         color: Colors.black,
                       ),
@@ -157,9 +188,11 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     required IconData icon,
     TextInputType? keyboardType,
     String? prefixText,
+    required TextEditingController controller,
     required ValueChanged<String> onChanged,
   }) {
     return TextField(
+      controller: controller,
       keyboardType: keyboardType,
       onChanged: onChanged,
       style: AppTextStyles.inputText,
@@ -317,14 +350,28 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     final amount = double.tryParse(_amount) ?? 0;
     widget.onSubmit(
       TransactionFormData(
+        id: widget.initial?.id,
         type: _type,
         description: _description,
         amount: amount,
         date: _date,
-        category: _category,
+        category: _categories
+            .firstWhere(
+              (c) => c.id == _category,
+              orElse: () => _categories.last,
+            )
+            .label,
       ),
     );
     Navigator.of(context).pop();
+  }
+
+  String _categoryIdFromLabel(String label) {
+    final match = _categories.firstWhere(
+      (category) => category.label.toLowerCase() == label.toLowerCase(),
+      orElse: () => _categories.last,
+    );
+    return match.id;
   }
 }
 
@@ -401,6 +448,7 @@ class _CategoryOption {
 
 class TransactionFormData {
   const TransactionFormData({
+    this.id,
     required this.type,
     required this.description,
     required this.amount,
@@ -408,6 +456,7 @@ class TransactionFormData {
     required this.category,
   });
 
+  final int? id;
   final TransactionType type;
   final String description;
   final double amount;
