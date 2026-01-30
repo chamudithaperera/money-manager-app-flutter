@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local/app_database.dart';
@@ -51,8 +52,14 @@ class TransactionNotifier extends AsyncNotifier<List<Transaction>> {
 
   @override
   Future<List<Transaction>> build() async {
-    final items = await _repository.getAll();
-    return _sortByDate(items);
+    try {
+      final items = await _repository.getAll();
+      return _sortByDate(items);
+    } catch (e, st) {
+      debugPrint('TransactionNotifier.build failed: $e');
+      debugPrintStack(stackTrace: st);
+      return [];
+    }
   }
 
   Future<void> add(Transaction transaction) async {
