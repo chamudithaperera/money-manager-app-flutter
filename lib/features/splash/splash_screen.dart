@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../core/theme/theme.dart';
@@ -18,7 +16,8 @@ class _SplashScreenState extends State<SplashScreen> {
   static const Color _splashBackground = Color(0xFF0A0A0A);
   static const Color _splashBlue = Color(0xFF3B82F6);
 
-  int _stage = 0;
+  /// Start at 1 so logo and first glow show immediately (no black screen).
+  int _stage = 1;
 
   @override
   void initState() {
@@ -26,13 +25,13 @@ class _SplashScreenState extends State<SplashScreen> {
     _runSequence();
   }
 
+  /// 2 second total: stages 2–5 and onComplete within 2000ms.
   void _runSequence() {
-    Future.delayed(const Duration(milliseconds: 400), () => _setStage(1));
-    Future.delayed(const Duration(milliseconds: 1000), () => _setStage(2));
-    Future.delayed(const Duration(milliseconds: 1800), () => _setStage(3));
-    Future.delayed(const Duration(milliseconds: 2800), () => _setStage(4));
-    Future.delayed(const Duration(milliseconds: 4000), () => _setStage(5));
-    Future.delayed(const Duration(milliseconds: 5000), widget.onComplete);
+    Future.delayed(const Duration(milliseconds: 400), () => _setStage(2));
+    Future.delayed(const Duration(milliseconds: 800), () => _setStage(3));
+    Future.delayed(const Duration(milliseconds: 1200), () => _setStage(4));
+    Future.delayed(const Duration(milliseconds: 1600), () => _setStage(5));
+    Future.delayed(const Duration(milliseconds: 2000), widget.onComplete);
   }
 
   void _setStage(int value) {
@@ -54,6 +53,7 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 
+  /// Soft glow circles without blur (ImageFilter.blur caused severe jank).
   Widget _buildGlows() {
     return Stack(
       clipBehavior: Clip.none,
@@ -67,14 +67,18 @@ class _SplashScreenState extends State<SplashScreen> {
             child: AnimatedScale(
               duration: const Duration(milliseconds: 1000),
               scale: _stage >= 1 ? 1 : 0.5,
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-                child: Container(
-                  width: 500,
-                  height: 500,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.primary.withValues(alpha: 0.1),
+              child: Container(
+                width: 500,
+                height: 500,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.12),
+                      AppColors.primary.withValues(alpha: 0.04),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
                 ),
               ),
@@ -90,14 +94,18 @@ class _SplashScreenState extends State<SplashScreen> {
             child: AnimatedScale(
               duration: const Duration(milliseconds: 1000),
               scale: _stage >= 2 ? 1 : 0.5,
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _splashBlue.withValues(alpha: 0.1),
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      _splashBlue.withValues(alpha: 0.12),
+                      _splashBlue.withValues(alpha: 0.04),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
                 ),
               ),

@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../core/theme/theme.dart';
@@ -22,37 +20,32 @@ class BottomNav extends StatelessWidget {
       left: 0,
       right: 0,
       bottom: 0,
-      child: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-            decoration: BoxDecoration(
-              color: AppColors.background.withValues(alpha: 0.9),
-              border: Border(
-                top: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          border: Border(
+            top: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                label: 'Home',
+                icon: Icons.home_outlined,
+                isActive: activeTab == BottomTab.home,
+                onTap: () => onTabChange(BottomTab.home),
               ),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _NavItem(
-                    label: 'Home',
-                    icon: Icons.home_outlined,
-                    isActive: activeTab == BottomTab.home,
-                    onTap: () => onTabChange(BottomTab.home),
-                  ),
-                  _NavItem(
-                    label: 'History',
-                    icon: Icons.history,
-                    isActive: activeTab == BottomTab.history,
-                    onTap: () => onTabChange(BottomTab.history),
-                  ),
-                ],
+              _NavItem(
+                label: 'History',
+                icon: Icons.history,
+                isActive: activeTab == BottomTab.history,
+                onTap: () => onTabChange(BottomTab.history),
               ),
-            ),
+            ],
           ),
         ),
       ),
