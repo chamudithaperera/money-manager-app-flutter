@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/theme.dart';
 import '../../shared/widgets/bottom_nav.dart';
+import '../transaction_history/history_page.dart';
 import 'data/mock_data.dart';
 import 'models/transaction.dart';
 import 'widgets/activity_item.dart';
+import 'widgets/add_transaction_modal.dart';
 import 'widgets/balance_card.dart';
 import 'widgets/stat_card.dart';
 
@@ -17,6 +19,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   BottomTab _activeTab = BottomTab.home;
+  TransactionType? _filterType;
+  String _dateFilter = 'This Month';
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +31,7 @@ class _HomePageState extends State<HomePage> {
           SafeArea(
             child: _activeTab == BottomTab.home
                 ? _buildHome()
-                : _buildHistoryPlaceholder(),
+                : _buildHistory(),
           ),
           BottomNav(
             activeTab: _activeTab,
@@ -172,14 +176,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildHistoryPlaceholder() {
-    return Center(
-      child: Text(
-        'History',
-        style: AppTextStyles.sectionHeader.copyWith(
-          color: AppColors.textSecondary,
-        ),
-      ),
+  Widget _buildHistory() {
+    return HistoryPage(
+      transactions: transactions,
+      activeType: _filterType,
+      onTypeChange: (type) => setState(() => _filterType = type),
+      activeDate: _dateFilter,
+      onDateChange: (date) => setState(() => _dateFilter = date),
     );
   }
 
@@ -194,29 +197,14 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.textTertiary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text('Add Transaction', style: AppTextStyles.modalTitle),
-              const SizedBox(height: 8),
-              Text(
-                'Modal UI will be added next.',
-                style: AppTextStyles.caption,
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
+        return AddTransactionModal(
+          onSubmit: (data) {
+            // Hook into state/database later.
+            // ignore: avoid_print
+            print(
+              'New transaction: ${data.type} ${data.description} ${data.amount}',
+            );
+          },
         );
       },
     );
