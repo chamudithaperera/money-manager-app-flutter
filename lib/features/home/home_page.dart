@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
 import '../../shared/widgets/bottom_nav.dart';
 import '../transaction_history/history_page.dart';
@@ -102,7 +103,10 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text('My Money Manager', style: AppTextStyles.appTitle),
             const SizedBox(height: 4),
-            Text('Welcome back, Alex', style: AppTextStyles.welcome),
+            Text(
+              'Welcome back, ${AppConstants.userDisplayName}',
+              style: AppTextStyles.welcome,
+            ),
           ],
         ),
         Container(
@@ -124,7 +128,7 @@ class _HomePageState extends State<HomePage> {
             ),
             alignment: Alignment.center,
             child: Text(
-              'AL',
+              AppConstants.userInitials,
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.bold,

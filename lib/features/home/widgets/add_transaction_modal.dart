@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
 
@@ -106,6 +107,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                   hint: '0.00',
                   icon: Icons.attach_money,
                   keyboardType: TextInputType.number,
+                  prefixText: '${AppConstants.currencySymbol} ',
                   onChanged: (value) => _amount = value,
                 ),
                 const SizedBox(height: 16),
@@ -154,6 +156,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     required String hint,
     required IconData icon,
     TextInputType? keyboardType,
+    String? prefixText,
     required ValueChanged<String> onChanged,
   }) {
     return TextField(
@@ -163,6 +166,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon, size: 18, color: AppColors.textTertiary),
+        prefixText: prefixText,
       ),
     );
   }

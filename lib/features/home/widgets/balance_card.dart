@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 
 class BalanceCard extends StatefulWidget {
@@ -80,7 +81,7 @@ class _BalanceCardState extends State<BalanceCard> {
               const SizedBox(height: 6),
               Text(
                 _isVisible
-                    ? '\$${widget.balance.toStringAsFixed(2)}'
+                    ? '${AppConstants.currencySymbol} ${widget.balance.toStringAsFixed(2)}'
                     : '••••••••',
                 style: AppTextStyles.balanceLarge,
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
 
@@ -34,7 +35,7 @@ class StatCard extends StatelessWidget {
           Text(config.label, style: AppTextStyles.caption),
           const SizedBox(height: 4),
           Text(
-            '\$${amount.toStringAsFixed(0)}',
+            '${AppConstants.currencySymbol} ${amount.toStringAsFixed(0)}',
             style: AppTextStyles.summaryAmount.copyWith(fontSize: 14),
           ),
         ],

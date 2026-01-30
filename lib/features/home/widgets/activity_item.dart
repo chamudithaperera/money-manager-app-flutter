@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
 
@@ -56,7 +57,7 @@ class ActivityItem extends StatelessWidget {
               ],
             ),
             Text(
-              '$prefix\$${transaction.amount.toStringAsFixed(2)}',
+              '$prefix${AppConstants.currencySymbol} ${transaction.amount.toStringAsFixed(2)}',
               style: AppTextStyles.transactionAmount.copyWith(color: color),
             ),
           ],

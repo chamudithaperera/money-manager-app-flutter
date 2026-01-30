@@ -27,12 +27,12 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _runSequence() {
-    Future.delayed(const Duration(milliseconds: 200), () => _setStage(1));
-    Future.delayed(const Duration(milliseconds: 600), () => _setStage(2));
-    Future.delayed(const Duration(milliseconds: 1000), () => _setStage(3));
-    Future.delayed(const Duration(milliseconds: 1800), () => _setStage(4));
-    Future.delayed(const Duration(milliseconds: 2600), () => _setStage(5));
-    Future.delayed(const Duration(milliseconds: 3200), widget.onComplete);
+    Future.delayed(const Duration(milliseconds: 400), () => _setStage(1));
+    Future.delayed(const Duration(milliseconds: 1000), () => _setStage(2));
+    Future.delayed(const Duration(milliseconds: 1800), () => _setStage(3));
+    Future.delayed(const Duration(milliseconds: 2800), () => _setStage(4));
+    Future.delayed(const Duration(milliseconds: 4000), () => _setStage(5));
+    Future.delayed(const Duration(milliseconds: 5000), widget.onComplete);
   }
 
   void _setStage(int value) {
