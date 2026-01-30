@@ -28,11 +28,15 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          SafeArea(
-            child: _activeTab == BottomTab.home
-                ? _buildHome()
-                : _buildHistory(),
+          Positioned.fill(
+            child: SafeArea(
+              bottom: false,
+              child: _activeTab == BottomTab.home
+                  ? _buildHome()
+                  : _buildHistory(),
+            ),
           ),
           BottomNav(
             activeTab: _activeTab,
