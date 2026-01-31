@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
+import '../../../providers/settings_provider.dart';
 
-class BalanceCard extends StatefulWidget {
+class BalanceCard extends ConsumerStatefulWidget {
   const BalanceCard({
     super.key,
     required this.balance,
@@ -14,10 +16,10 @@ class BalanceCard extends StatefulWidget {
   final double balanceChange;
 
   @override
-  State<BalanceCard> createState() => _BalanceCardState();
+  ConsumerState<BalanceCard> createState() => _BalanceCardState();
 }
 
-class _BalanceCardState extends State<BalanceCard> {
+class _BalanceCardState extends ConsumerState<BalanceCard> {
   bool _isVisible = true;
 
   @override
@@ -28,6 +30,9 @@ class _BalanceCardState extends State<BalanceCard> {
 
     // Calculate bar width factor (capped at 100% change for visual purposes)
     final progressFactor = (widget.balanceChange.abs() / 100).clamp(0.05, 1.0);
+    final currency =
+        ref.watch(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
 
     return Container(
       decoration: BoxDecoration(
@@ -93,7 +98,7 @@ class _BalanceCardState extends State<BalanceCard> {
               const SizedBox(height: 6),
               Text(
                 _isVisible
-                    ? '${AppConstants.currencySymbol} ${widget.balance.toStringAsFixed(2)}'
+                    ? '$currency ${widget.balance.toStringAsFixed(2)}'
                     : '••••••••',
                 style: AppTextStyles.balanceLarge,
               ),

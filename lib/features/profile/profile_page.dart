@@ -1,20 +1,25 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
+import '../../providers/settings_provider.dart';
 import '../home/models/transaction.dart';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key, required this.transactions});
 
   final List<Transaction> transactions;
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends ConsumerState<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final report = _generateReport(widget.transactions);
@@ -53,19 +58,164 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildSettingsOption(
             icon: Icons.edit,
             title: 'Edit Profile',
-            onTap: () {
-              // TODO: Navigate to edit profile
-            },
+            onTap: _showEditProfileDialog,
           ),
           const SizedBox(height: 12),
           _buildSettingsOption(
             icon: Icons.currency_exchange,
             title: 'Change Currency',
-            onTap: () {
-              // TODO: Open currency picker
-            },
+            onTap: _showCurrencyPicker,
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showEditProfileDialog() async {
+    final settings = ref.read(settingsProvider).asData?.value;
+    final initialName = settings?.displayName ?? AppConstants.userDisplayName;
+    final initialImage = settings?.profileImagePath;
+
+    final nameController = TextEditingController(text: initialName);
+    String? newImagePath = initialImage;
+    final ImagePicker picker = ImagePicker();
+
+    // Use a StatefulBuilder to handle local state within the dialog
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: const Text('Edit Profile'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    final XFile? image = await picker.pickImage(
+                      source: ImageSource.gallery,
+                    );
+                    if (image != null) {
+                      setState(() => newImagePath = image.path);
+                    }
+                  },
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.background,
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: newImagePath != null
+                            ? Image.file(File(newImagePath!), fit: BoxFit.cover)
+                            : const Icon(
+                                Icons.person,
+                                size: 40,
+                                color: AppColors.textSecondary,
+                              ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 14,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Display Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final newName = nameController.text.trim();
+                  if (newName.isNotEmpty) {
+                    await ref
+                        .read(settingsProvider.notifier)
+                        .updateDisplayName(newName);
+                  }
+                  if (newImagePath != initialImage && newImagePath != null) {
+                    await ref
+                        .read(settingsProvider.notifier)
+                        .updateProfileImage(newImagePath!);
+                  }
+                  if (mounted) Navigator.pop(context);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCurrencyPicker() {
+    final currencies = [
+      {'code': 'USD', 'symbol': '\$'},
+      {'code': 'EUR', 'symbol': '€'},
+      {'code': 'GBP', 'symbol': '£'},
+      {'code': 'JPY', 'symbol': '¥'},
+      {'code': 'LK', 'symbol': 'Rs'},
+      {'code': 'INR', 'symbol': '₹'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        itemCount: currencies.length,
+        itemBuilder: (context, index) {
+          final currency = currencies[index];
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: AppColors.background,
+              child: Text(
+                currency['symbol']!,
+                style: const TextStyle(color: AppColors.primary),
+              ),
+            ),
+            title: Text('${currency['code']} (${currency['symbol']})'),
+            onTap: () {
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateCurrency(currency['symbol']!);
+              Navigator.pop(context);
+            },
+          );
+        },
       ),
     );
   }
@@ -112,6 +262,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileHeader() {
+    final settingsAsync = ref.watch(settingsProvider);
+    final settings = settingsAsync.asData?.value;
+
+    final displayName = settings?.displayName ?? AppConstants.userDisplayName;
+    final initials = settings?.initials ?? AppConstants.userInitials;
+    final imagePath = settings?.profileImagePath;
+
     return Column(
       children: [
         Container(
@@ -134,10 +291,26 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           alignment: Alignment.center,
-          child: const Icon(Icons.person, size: 48, color: Colors.white),
+          clipBehavior: Clip.antiAlias,
+          child: imagePath != null
+              ? Image.file(
+                  File(imagePath),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.person, size: 48, color: Colors.white),
+                )
+              : Text(
+                  initials,
+                  style: AppTextStyles.appTitle.copyWith(
+                    color: Colors.white,
+                    fontSize: 32,
+                  ),
+                ),
         ),
         const SizedBox(height: 16),
-        Text(AppConstants.userDisplayName, style: AppTextStyles.appTitle),
+        Text(displayName, style: AppTextStyles.appTitle),
         const SizedBox(height: 4),
         Text(
           'Premium Member',

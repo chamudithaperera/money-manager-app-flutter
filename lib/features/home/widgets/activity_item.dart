@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
+import '../../../providers/settings_provider.dart';
 import '../models/transaction.dart';
 
-class ActivityItem extends StatelessWidget {
+class ActivityItem extends ConsumerWidget {
   const ActivityItem({super.key, required this.transaction, this.onLongPress});
 
   final Transaction transaction;
   final VoidCallback? onLongPress;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final icon = _iconForCategory(transaction.category);
     final color = _amountColor(transaction.type);
     final prefix = transaction.type == TransactionType.income
@@ -20,6 +22,9 @@ class ActivityItem extends StatelessWidget {
         ? '-'
         : '';
     final dateStr = _formatDate(transaction.date);
+    final currency =
+        ref.watch(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
 
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.large),
@@ -59,7 +64,7 @@ class ActivityItem extends StatelessWidget {
               ],
             ),
             Text(
-              '$prefix${AppConstants.currencySymbol} ${transaction.amount.toStringAsFixed(2)}',
+              '$prefix$currency ${transaction.amount.toStringAsFixed(2)}',
               style: AppTextStyles.transactionAmount.copyWith(color: color),
             ),
           ],

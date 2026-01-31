@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/transaction_providers.dart';
 import '../../shared/widgets/bottom_nav.dart';
 import '../transaction_history/history_page.dart';
@@ -129,6 +132,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildHeader() {
+    final settingsAsync = ref.watch(settingsProvider);
+    final settings = settingsAsync.asData?.value; // Use asData?.value safely
+
+    final displayName = settings?.displayName ?? AppConstants.userDisplayName;
+    final initials = settings?.initials ?? AppConstants.userInitials;
+    final imagePath = settings?.profileImagePath;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -137,10 +147,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           children: [
             Text('My Money Manager', style: AppTextStyles.appTitle),
             const SizedBox(height: 4),
-            Text(
-              'Welcome back, ${AppConstants.userDisplayName}',
-              style: AppTextStyles.welcome,
-            ),
+            Text('Welcome back, $displayName', style: AppTextStyles.welcome),
           ],
         ),
         Container(
@@ -161,13 +168,28 @@ class _HomePageState extends ConsumerState<HomePage> {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Text(
-              AppConstants.userInitials,
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: imagePath != null
+                ? Image.file(
+                    File(imagePath),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, __, ___) => Text(
+                      initials,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                : Text(
+                    initials,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
       ],

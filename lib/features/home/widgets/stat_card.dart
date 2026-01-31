@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
+import '../../../providers/settings_provider.dart';
 import '../models/transaction.dart';
 
-class StatCard extends StatelessWidget {
+class StatCard extends ConsumerWidget {
   const StatCard({super.key, required this.type, required this.amount});
 
   final TransactionType type;
   final double amount;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final config = _configFor(type);
+    final currency =
+        ref.watch(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
 
     return Container(
       decoration: BoxDecoration(
@@ -35,7 +41,7 @@ class StatCard extends StatelessWidget {
           Text(config.label, style: AppTextStyles.caption),
           const SizedBox(height: 4),
           Text(
-            '${AppConstants.currencySymbol} ${amount.toStringAsFixed(0)}',
+            '$currency ${amount.toStringAsFixed(0)}',
             style: AppTextStyles.summaryAmount.copyWith(fontSize: 14),
           ),
         ],
