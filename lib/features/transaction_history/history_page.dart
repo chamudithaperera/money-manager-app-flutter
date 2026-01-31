@@ -27,8 +27,11 @@ class HistoryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // 1. Filter
     final filtered = transactions.where((transaction) {
-      if (activeType == null) return true;
-      return transaction.type == activeType;
+      if (activeType != null && transaction.type != activeType) return false;
+      if (activeDate == 'This Month') {
+        return _isSameMonth(transaction.date, DateTime.now());
+      }
+      return true;
     }).toList();
 
     // 2. Group and Flatten
@@ -95,6 +98,10 @@ class HistoryPage extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  bool _isSameMonth(DateTime date1, DateTime date2) {
+    return date1.year == date2.year && date1.month == date2.month;
   }
 
   List<Object> _buildFlatList(List<Transaction> items) {

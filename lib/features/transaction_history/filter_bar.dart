@@ -33,7 +33,10 @@ class FilterBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             TextButton.icon(
-              onPressed: () => onDateChange(activeDate),
+              onPressed: () {
+                final newValue = activeDate == 'All' ? 'This Month' : 'All';
+                onDateChange(newValue);
+              },
               icon: const Icon(Icons.calendar_month, size: 16),
               label: Row(
                 mainAxisSize: MainAxisSize.min,
