@@ -337,7 +337,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   List<_MonthStats> _generateReport(List<Transaction> transactions) {
-    print('Generating report for ${transactions.length} transactions');
     final Map<String, _MonthStats> stats = {};
 
     for (final tx in transactions) {

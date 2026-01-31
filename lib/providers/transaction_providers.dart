@@ -18,14 +18,29 @@ final transactionsProvider =
       TransactionNotifier.new,
     );
 
+// Using keepAlive to cache the calculations and avoid recomputing on every rebuild
 final statsProvider = Provider<HomeStats>((ref) {
+  // Cache this provider to avoid unnecessary recalculations
+  ref.keepAlive();
+
   final transactions = ref.watch(transactionsProvider).value ?? const [];
+
+  // Early return for empty transactions
+  if (transactions.isEmpty) {
+    return const HomeStats(
+      income: 0,
+      expenses: 0,
+      savings: 0,
+      balance: 0,
+      savingDeducts: 0,
+      balanceChange: 0,
+    );
+  }
+
   double income = 0;
   double expenses = 0;
-  double savings = 0; // Gross savings added
+  double savings = 0;
   double savingDeducts = 0;
-
-  // For comparison
   double lastMonthIncome = 0;
   double lastMonthExpenses = 0;
   double lastMonthSavings = 0;
@@ -33,34 +48,37 @@ final statsProvider = Provider<HomeStats>((ref) {
   final now = DateTime.now();
   final firstDayOfThisMonth = DateTime(now.year, now.month, 1);
 
+  // Single pass through transactions for better performance
   for (final tx in transactions) {
-    // 1. Current Totals (All time)
+    final amount = tx.amount;
+
+    // Current totals
     switch (tx.type) {
       case TransactionType.income:
-        income += tx.amount;
+        income += amount;
         break;
       case TransactionType.expense:
-        expenses += tx.amount;
+        expenses += amount;
         break;
       case TransactionType.savings:
-        savings += tx.amount;
+        savings += amount;
         break;
       case TransactionType.savingDeduct:
-        savingDeducts += tx.amount;
+        savingDeducts += amount;
         break;
     }
 
-    // 2. Previous Month Totals (Strictly before start of this month)
+    // Previous month totals (optimization: single date comparison)
     if (tx.date.isBefore(firstDayOfThisMonth)) {
       switch (tx.type) {
         case TransactionType.income:
-          lastMonthIncome += tx.amount;
+          lastMonthIncome += amount;
           break;
         case TransactionType.expense:
-          lastMonthExpenses += tx.amount;
+          lastMonthExpenses += amount;
           break;
         case TransactionType.savings:
-          lastMonthSavings += tx.amount;
+          lastMonthSavings += amount;
           break;
         default:
           break;
@@ -68,22 +86,15 @@ final statsProvider = Provider<HomeStats>((ref) {
     }
   }
 
-  // Current State
   final netSavings = savings - savingDeducts;
   final currentBalance = income - expenses - savings;
-
-  // Previous State (End of last month)
   final lastMonthBalance =
       lastMonthIncome - lastMonthExpenses - lastMonthSavings;
 
-  // Percentage Change
-  double percentageChange = 0;
-  if (lastMonthBalance == 0) {
-    percentageChange = currentBalance > 0 ? 100 : 0;
-  } else {
-    percentageChange =
-        ((currentBalance - lastMonthBalance) / lastMonthBalance.abs()) * 100;
-  }
+  // Optimized percentage calculation
+  final percentageChange = lastMonthBalance == 0
+      ? (currentBalance > 0 ? 100.0 : 0.0)
+      : ((currentBalance - lastMonthBalance) / lastMonthBalance.abs()) * 100;
 
   return HomeStats(
     income: income,
