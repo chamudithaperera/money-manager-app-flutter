@@ -112,6 +112,8 @@ class ActivityItem extends StatelessWidget {
         return AppColors.textPrimary;
       case TransactionType.savings:
         return AppColors.savings;
+      case TransactionType.savingDeduct:
+        return AppColors.expense;
     }
   }
 
@@ -123,6 +125,8 @@ class ActivityItem extends StatelessWidget {
         return AppColors.expense.withValues(alpha: 0.1);
       case TransactionType.savings:
         return AppColors.savings.withValues(alpha: 0.1);
+      case TransactionType.savingDeduct:
+        return AppColors.expense.withValues(alpha: 0.1);
     }
   }
 }

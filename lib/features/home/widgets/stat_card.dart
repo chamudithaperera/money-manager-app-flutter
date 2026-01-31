@@ -66,6 +66,13 @@ class StatCard extends StatelessWidget {
           color: AppColors.savings,
           bgColor: Color(0x1A8B5CF6),
         );
+      case TransactionType.savingDeduct:
+        return const _StatConfig(
+          icon: Icons.remove_circle,
+          label: 'Deductions',
+          color: AppColors.expense,
+          bgColor: Color(0x1AEA5455),
+        );
     }
   }
 }

@@ -23,6 +23,7 @@ final statsProvider = Provider<HomeStats>((ref) {
   double income = 0;
   double expenses = 0;
   double savings = 0;
+  double savingDeducts = 0;
 
   for (final tx in transactions) {
     switch (tx.type) {
@@ -35,14 +36,28 @@ final statsProvider = Provider<HomeStats>((ref) {
       case TransactionType.savings:
         savings += tx.amount;
         break;
+      case TransactionType.savingDeduct:
+        savingDeducts += tx.amount;
+        break;
     }
   }
+
+  // 1. saving = savings - saving Deducts
+  final netSavings = savings - savingDeducts;
+
+  // 2. balance = income - expenses - Savings - Saving deduct
+  // Here "Savings" refers to netSavings since that's what we display as "Savings"
+  // So: Balance = Income - Expenses - (Savings - Deducts) - Deducts
+  // Balance = Income - Expenses - Savings + Deducts - Deducts
+  // Balance = Income - Expenses - Savings (Total added to savings)
+  final balance = income - expenses - savings;
 
   return HomeStats(
     income: income,
     expenses: expenses,
-    savings: savings,
-    balance: income - expenses - savings,
+    savings: netSavings,
+    balance: balance,
+    savingDeducts: savingDeducts,
   );
 });
 
@@ -96,10 +111,12 @@ class HomeStats {
     required this.income,
     required this.expenses,
     required this.savings,
+    required this.savingDeducts,
   });
 
   final double balance;
   final double income;
   final double expenses;
   final double savings;
+  final double savingDeducts;
 }
