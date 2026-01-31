@@ -16,31 +16,47 @@ class App extends ConsumerStatefulWidget {
 }
 
 class _AppState extends ConsumerState<App> {
-  _AppScreen _currentScreen = _AppScreen.splash;
-
-  void _onSplashComplete() {
-    final settings = ref.read(settingsProvider).asData?.value;
-    // Check if name is the default 'Your Name'
-    if (settings != null && settings.displayName == 'Your Name') {
-      setState(() => _currentScreen = _AppScreen.onboarding);
-    } else {
-      setState(() => _currentScreen = _AppScreen.home);
-    }
-  }
+  bool _minSplashTimePassed = false;
 
   @override
   Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(settingsProvider);
+
+    // Determines which screen to show
+    Widget getScreen() {
+      // 1. If explicitly stuck on splash (timer not done), show splash
+      if (!_minSplashTimePassed) {
+        return SplashScreen(
+          onComplete: () {
+            setState(() => _minSplashTimePassed = true);
+          },
+        );
+      }
+
+      // 2. Timer is done. Check if settings are loaded.
+      return settingsAsync.when(
+        data: (settings) {
+          // Settings loaded. Check user name.
+          if (settings.displayName == 'Your Name') {
+            return const OnboardingPage();
+          } else {
+            return const HomePage();
+          }
+        },
+        // If loading or error, keep showing splash (or a generic loader)
+        // Since SplashScreen handles its own animation, we can just return it
+        // passing a no-op callback or keeping the original one (it won't fire again if widget is rebuilt).
+        // Actually, simpler: just return SplashScreen with a no-op if we are waiting for data but timer is done.
+        loading: () => SplashScreen(onComplete: () {}),
+        error: (_, __) => const HomePage(), // Fallback on error
+      );
+    }
+
     return MaterialApp(
       title: 'My Money Manager',
       theme: AppTheme.dark,
       debugShowCheckedModeBanner: false,
-      home: switch (_currentScreen) {
-        _AppScreen.splash => SplashScreen(onComplete: _onSplashComplete),
-        _AppScreen.onboarding => const OnboardingPage(),
-        _AppScreen.home => const HomePage(),
-      },
+      home: getScreen(),
     );
   }
 }
-
-enum _AppScreen { splash, onboarding, home }
