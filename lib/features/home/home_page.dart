@@ -80,7 +80,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         children: [
           _buildHeader(),
           const SizedBox(height: 24),
-          BalanceCard(balance: stats.balance),
+          BalanceCard(
+            balance: stats.balance,
+            balanceChange: stats.balanceChange,
+          ),
           const SizedBox(height: 24),
           Row(
             children: [

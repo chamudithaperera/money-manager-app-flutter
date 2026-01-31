@@ -4,9 +4,14 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 
 class BalanceCard extends StatefulWidget {
-  const BalanceCard({super.key, required this.balance});
+  const BalanceCard({
+    super.key,
+    required this.balance,
+    required this.balanceChange,
+  });
 
   final double balance;
+  final double balanceChange;
 
   @override
   State<BalanceCard> createState() => _BalanceCardState();
@@ -17,6 +22,13 @@ class _BalanceCardState extends State<BalanceCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isPositive = widget.balanceChange >= 0;
+    final changeText =
+        '${isPositive ? '+' : ''}${widget.balanceChange.toStringAsFixed(1)}%';
+
+    // Calculate bar width factor (capped at 100% change for visual purposes)
+    final progressFactor = (widget.balanceChange.abs() / 100).clamp(0.05, 1.0);
+
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -96,14 +108,18 @@ class _BalanceCardState extends State<BalanceCard> {
                         color: AppColors.progressTrack,
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: Container(
-                            width: MediaQuery.sizeOf(context).width * 0.45,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.primary,
-                                  AppColors.primaryLight,
-                                ],
+                          child: FractionallySizedBox(
+                            widthFactor: progressFactor,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: isPositive
+                                      ? [
+                                          AppColors.primary,
+                                          AppColors.primaryLight,
+                                        ]
+                                      : [AppColors.expense, Colors.redAccent],
+                                ),
                               ),
                             ),
                           ),
@@ -113,9 +129,9 @@ class _BalanceCardState extends State<BalanceCard> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '+12% vs last mo',
+                    '$changeText vs last mo',
                     style: AppTextStyles.caption.copyWith(
-                      color: AppColors.primary,
+                      color: isPositive ? AppColors.primary : AppColors.expense,
                     ),
                   ),
                 ],

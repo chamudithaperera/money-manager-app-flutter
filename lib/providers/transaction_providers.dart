@@ -22,10 +22,19 @@ final statsProvider = Provider<HomeStats>((ref) {
   final transactions = ref.watch(transactionsProvider).value ?? const [];
   double income = 0;
   double expenses = 0;
-  double savings = 0;
+  double savings = 0; // Gross savings added
   double savingDeducts = 0;
 
+  // For comparison
+  double lastMonthIncome = 0;
+  double lastMonthExpenses = 0;
+  double lastMonthSavings = 0;
+
+  final now = DateTime.now();
+  final firstDayOfThisMonth = DateTime(now.year, now.month, 1);
+
   for (final tx in transactions) {
+    // 1. Current Totals (All time)
     switch (tx.type) {
       case TransactionType.income:
         income += tx.amount;
@@ -40,24 +49,49 @@ final statsProvider = Provider<HomeStats>((ref) {
         savingDeducts += tx.amount;
         break;
     }
+
+    // 2. Previous Month Totals (Strictly before start of this month)
+    if (tx.date.isBefore(firstDayOfThisMonth)) {
+      switch (tx.type) {
+        case TransactionType.income:
+          lastMonthIncome += tx.amount;
+          break;
+        case TransactionType.expense:
+          lastMonthExpenses += tx.amount;
+          break;
+        case TransactionType.savings:
+          lastMonthSavings += tx.amount;
+          break;
+        default:
+          break;
+      }
+    }
   }
 
-  // 1. saving = savings - saving Deducts
+  // Current State
   final netSavings = savings - savingDeducts;
+  final currentBalance = income - expenses - savings;
 
-  // 2. balance = income - expenses - Savings - Saving deduct
-  // Here "Savings" refers to netSavings since that's what we display as "Savings"
-  // So: Balance = Income - Expenses - (Savings - Deducts) - Deducts
-  // Balance = Income - Expenses - Savings + Deducts - Deducts
-  // Balance = Income - Expenses - Savings (Total added to savings)
-  final balance = income - expenses - savings;
+  // Previous State (End of last month)
+  final lastMonthBalance =
+      lastMonthIncome - lastMonthExpenses - lastMonthSavings;
+
+  // Percentage Change
+  double percentageChange = 0;
+  if (lastMonthBalance == 0) {
+    percentageChange = currentBalance > 0 ? 100 : 0;
+  } else {
+    percentageChange =
+        ((currentBalance - lastMonthBalance) / lastMonthBalance.abs()) * 100;
+  }
 
   return HomeStats(
     income: income,
     expenses: expenses,
     savings: netSavings,
-    balance: balance,
+    balance: currentBalance,
     savingDeducts: savingDeducts,
+    balanceChange: percentageChange,
   );
 });
 
@@ -112,6 +146,7 @@ class HomeStats {
     required this.expenses,
     required this.savings,
     required this.savingDeducts,
+    required this.balanceChange,
   });
 
   final double balance;
@@ -119,4 +154,5 @@ class HomeStats {
   final double expenses;
   final double savings;
   final double savingDeducts;
+  final double balanceChange;
 }
