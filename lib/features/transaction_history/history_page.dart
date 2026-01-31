@@ -25,77 +25,79 @@ class HistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Filter
     final filtered = transactions.where((transaction) {
       if (activeType == null) return true;
       return transaction.type == activeType;
     }).toList();
 
-    final grouped = _groupByDate(filtered);
+    // 2. Group and Flatten
+    final flatList = _buildFlatList(filtered);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Transaction History', style: AppTextStyles.appTitle),
-          const SizedBox(height: 20),
-          FilterBar(
-            activeType: activeType,
-            onTypeChange: onTypeChange,
-            activeDate: activeDate,
-            onDateChange: onDateChange,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Transaction History', style: AppTextStyles.appTitle),
+              const SizedBox(height: 20),
+              FilterBar(
+                activeType: activeType,
+                onTypeChange: onTypeChange,
+                activeDate: activeDate,
+                onDateChange: onDateChange,
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
-          const SizedBox(height: 16),
-          if (grouped.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 48),
-                child: Text(
-                  'No transactions found for this filter.',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+        ),
+        if (flatList.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Text(
+                'No transactions found for this filter.',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
-            )
-          else
-            Column(
-              children: grouped.entries.map((entry) {
-                final dateHeader = _formatHeader(entry.key);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6, bottom: 8),
-                        child: Text(
-                          dateHeader,
-                          style: AppTextStyles.dateGroupHeader.copyWith(
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ),
-                      Column(
-                        children: [
-                          for (final tx in entry.value)
-                            ActivityItem(
-                              transaction: tx,
-                              onLongPress: () => onTransactionLongPress(tx),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
             ),
-        ],
-      ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+              itemCount: flatList.length,
+              itemBuilder: (context, index) {
+                final item = flatList[index];
+                if (item is String) {
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 6, bottom: 8, top: 18),
+                    child: Text(
+                      item,
+                      style: AppTextStyles.dateGroupHeader.copyWith(
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  );
+                } else if (item is Transaction) {
+                  return ActivityItem(
+                    transaction: item,
+                    onLongPress: () => onTransactionLongPress(item),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+      ],
     );
   }
 
-  Map<DateTime, List<Transaction>> _groupByDate(List<Transaction> items) {
+  List<Object> _buildFlatList(List<Transaction> items) {
     final Map<DateTime, List<Transaction>> grouped = {};
     for (final transaction in items) {
       final date = DateTime(
@@ -107,11 +109,13 @@ class HistoryPage extends StatelessWidget {
     }
 
     final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
-    final sorted = <DateTime, List<Transaction>>{};
+
+    final flatList = <Object>[];
     for (final key in sortedKeys) {
-      sorted[key] = grouped[key]!;
+      flatList.add(_formatHeader(key));
+      flatList.addAll(grouped[key]!);
     }
-    return sorted;
+    return flatList;
   }
 
   String _formatHeader(DateTime date) {

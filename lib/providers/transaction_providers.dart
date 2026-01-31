@@ -53,8 +53,7 @@ class TransactionNotifier extends AsyncNotifier<List<Transaction>> {
   @override
   Future<List<Transaction>> build() async {
     try {
-      final items = await _repository.getAll();
-      return _sortByDate(items);
+      return await _repository.getAll();
     } catch (e, st) {
       debugPrint('TransactionNotifier.build failed: $e');
       debugPrintStack(stackTrace: st);
