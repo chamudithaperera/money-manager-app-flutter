@@ -1,22 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/theme.dart';
 import '../features/home/home_page.dart';
+import '../features/onboarding/onboarding_page.dart';
 import '../features/splash/splash_screen.dart';
+import '../providers/settings_provider.dart';
 
-/// Root widget: shows splash then home.
-class App extends StatefulWidget {
+/// Root widget: shows splash, then checks if onboarding is needed.
+class App extends ConsumerStatefulWidget {
   const App({super.key});
 
   @override
-  State<App> createState() => _AppState();
+  ConsumerState<App> createState() => _AppState();
 }
 
-class _AppState extends State<App> {
-  bool _splashComplete = false;
+class _AppState extends ConsumerState<App> {
+  _AppScreen _currentScreen = _AppScreen.splash;
 
   void _onSplashComplete() {
-    setState(() => _splashComplete = true);
+    final settings = ref.read(settingsProvider).asData?.value;
+    // Check if name is the default 'Your Name'
+    if (settings != null && settings.displayName == 'Your Name') {
+      setState(() => _currentScreen = _AppScreen.onboarding);
+    } else {
+      setState(() => _currentScreen = _AppScreen.home);
+    }
   }
 
   @override
@@ -25,9 +34,13 @@ class _AppState extends State<App> {
       title: 'My Money Manager',
       theme: AppTheme.dark,
       debugShowCheckedModeBanner: false,
-      home: _splashComplete
-          ? const HomePage()
-          : SplashScreen(onComplete: _onSplashComplete),
+      home: switch (_currentScreen) {
+        _AppScreen.splash => SplashScreen(onComplete: _onSplashComplete),
+        _AppScreen.onboarding => const OnboardingPage(),
+        _AppScreen.home => const HomePage(),
+      },
     );
   }
 }
+
+enum _AppScreen { splash, onboarding, home }
