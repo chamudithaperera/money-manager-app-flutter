@@ -15,21 +15,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  late TextEditingController _nameController;
-  bool _isEditingName = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: AppConstants.userDisplayName);
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final report = _generateReport(widget.transactions);
@@ -37,13 +22,11 @@ class _ProfilePageState extends State<ProfilePage> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildProfileHeader(),
           const SizedBox(height: 32),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Monthly Analysis', style: AppTextStyles.sectionHeader),
-          ),
+          Text('Monthly Analysis', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 16),
           if (report.isEmpty)
             Padding(
@@ -53,6 +36,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.textSecondary,
                 ),
+                textAlign: TextAlign.center,
               ),
             )
           else
@@ -63,7 +47,66 @@ class _ProfilePageState extends State<ProfilePage> {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) => _MonthCard(stats: report[index]),
             ),
+          const SizedBox(height: 32),
+          Text('Settings', style: AppTextStyles.sectionHeader),
+          const SizedBox(height: 16),
+          _buildSettingsOption(
+            icon: Icons.edit,
+            title: 'Edit Profile',
+            onTap: () {
+              // TODO: Navigate to edit profile
+            },
+          ),
+          const SizedBox(height: 12),
+          _buildSettingsOption(
+            icon: Icons.currency_exchange,
+            title: 'Change Currency',
+            onTap: () {
+              // TODO: Open currency picker
+            },
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsOption({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.large),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.large),
+          border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 20, color: AppColors.primary),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.chevron_right, size: 20, color: AppColors.textTertiary),
+          ],
+        ),
       ),
     );
   }
@@ -71,83 +114,31 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildProfileHeader() {
     return Column(
       children: [
-        Stack(
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.savings],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: AppColors.background, width: 4),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.person, size: 48, color: Colors.white),
+        Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.savings],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: const Icon(
-                  Icons.camera_alt,
-                  size: 16,
-                  color: AppColors.textSecondary,
-                ),
+            border: Border.all(color: AppColors.background, width: 4),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
-            ),
-          ],
+            ],
+          ),
+          alignment: Alignment.center,
+          child: const Icon(Icons.person, size: 48, color: Colors.white),
         ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_isEditingName)
-              SizedBox(
-                width: 200,
-                child: TextField(
-                  controller: _nameController,
-                  autofocus: true,
-                  style: AppTextStyles.appTitle,
-                  textAlign: TextAlign.center,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => setState(() => _isEditingName = false),
-                ),
-              )
-            else
-              Text(_nameController.text, style: AppTextStyles.appTitle),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: Icon(
-                _isEditingName ? Icons.check : Icons.edit,
-                size: 18,
-                color: AppColors.primary,
-              ),
-              onPressed: () {
-                setState(() => _isEditingName = !_isEditingName);
-              },
-            ),
-          ],
-        ),
+        Text(AppConstants.userDisplayName, style: AppTextStyles.appTitle),
+        const SizedBox(height: 4),
         Text(
           'Premium Member',
           style: AppTextStyles.caption.copyWith(color: AppColors.savings),
