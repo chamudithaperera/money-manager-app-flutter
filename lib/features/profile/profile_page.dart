@@ -71,6 +71,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             title: 'Change Currency',
             onTap: _showCurrencyPicker,
           ),
+          const SizedBox(height: 32),
+          Center(
+            child: Text(
+              'Product of ChamXdev by Chamuditha Perera',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textTertiary,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
         ],
       ),
     );
