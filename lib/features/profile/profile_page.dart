@@ -50,7 +50,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: report.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _MonthCard(stats: report[index]),
+              itemBuilder: (context, index) => _MonthCard(
+                stats: report[index],
+                currency:
+                    ref.watch(settingsProvider).asData?.value.currencySymbol ??
+                    AppConstants.currencySymbol,
+              ),
             ),
           const SizedBox(height: 32),
           Text('Settings', style: AppTextStyles.sectionHeader),
@@ -361,9 +366,10 @@ class _MonthStats {
 }
 
 class _MonthCard extends StatelessWidget {
-  const _MonthCard({required this.stats});
+  const _MonthCard({required this.stats, required this.currency});
 
   final _MonthStats stats;
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
@@ -391,7 +397,7 @@ class _MonthCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '${total >= 0 ? "+" : ""}${AppConstants.currencySymbol} ${total.toStringAsFixed(0)}',
+                '${total >= 0 ? "+" : ""}$currency ${total.toStringAsFixed(0)}',
                 style: AppTextStyles.summaryAmount.copyWith(
                   color: total >= 0 ? AppColors.primary : AppColors.expense,
                   fontSize: 16,
@@ -405,6 +411,7 @@ class _MonthCard extends StatelessWidget {
             amount: stats.income,
             color: AppColors.primary,
             total: stats.income + stats.expenses + stats.savings,
+            currency: currency,
           ),
           const SizedBox(height: 8),
           _Bar(
@@ -412,6 +419,7 @@ class _MonthCard extends StatelessWidget {
             amount: stats.expenses,
             color: AppColors.expense,
             total: stats.income + stats.expenses + stats.savings,
+            currency: currency,
           ),
           const SizedBox(height: 8),
           _Bar(
@@ -419,6 +427,7 @@ class _MonthCard extends StatelessWidget {
             amount: stats.savings,
             color: AppColors.savings,
             total: stats.income + stats.expenses + stats.savings,
+            currency: currency,
           ),
         ],
       ),
@@ -432,17 +441,19 @@ class _Bar extends StatelessWidget {
     required this.amount,
     required this.color,
     required this.total,
+    required this.currency,
   });
 
   final String label;
   final double amount;
   final Color color;
   final double total;
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
     if (amount <= 0) return const SizedBox.shrink();
-    // Prevent division by zero if total is 0 (though ideally handled by amount check)
+    // Prevent division by zero if total is 0
     final percentage = total > 0 ? (amount / total) : 0.0;
 
     return Row(
@@ -481,7 +492,7 @@ class _Bar extends StatelessWidget {
         SizedBox(
           width: 60,
           child: Text(
-            '${AppConstants.currencySymbol}${amount.toStringAsFixed(0)}',
+            '$currency${amount.toStringAsFixed(0)}',
             style: AppTextStyles.caption.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w500,
