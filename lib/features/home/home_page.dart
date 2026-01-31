@@ -12,6 +12,8 @@ import 'widgets/add_transaction_modal.dart';
 import 'widgets/balance_card.dart';
 import 'widgets/stat_card.dart';
 
+import '../profile/profile_page.dart';
+
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -38,9 +40,16 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: SafeArea(
               bottom: false,
               child: transactionsAsync.when(
-                data: (items) => _activeTab == BottomTab.home
-                    ? _buildHome(items, stats)
-                    : _buildHistory(items),
+                data: (items) {
+                  switch (_activeTab) {
+                    case BottomTab.home:
+                      return _buildHome(items, stats);
+                    case BottomTab.activities:
+                      return _buildActivities(items);
+                    case BottomTab.profile:
+                      return _buildProfile(items);
+                  }
+                },
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
                   child: Text(
@@ -195,14 +204,18 @@ class _HomePageState extends ConsumerState<HomePage> {
       children: [
         Text('Recent Activity', style: AppTextStyles.sectionHeader),
         TextButton(
-          onPressed: () {},
+          onPressed: () {
+            setState(() {
+              _activeTab = BottomTab.activities;
+            });
+          },
           child: Text('See All', style: AppTextStyles.link),
         ),
       ],
     );
   }
 
-  Widget _buildHistory(List<Transaction> items) {
+  Widget _buildActivities(List<Transaction> items) {
     return HistoryPage(
       transactions: items,
       activeType: _filterType,
@@ -211,6 +224,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       onDateChange: (date) => setState(() => _dateFilter = date),
       onTransactionLongPress: _showTransactionActions,
     );
+  }
+
+  Widget _buildProfile(List<Transaction> items) {
+    return ProfilePage(transactions: items);
   }
 
   void _showAddSheet({Transaction? initial}) {
