@@ -25,11 +25,15 @@ class HistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 0. Extract available months
+    final availableMonths = _extractUniqueMonths(transactions);
+
     // 1. Filter
     final filtered = transactions.where((transaction) {
       if (activeType != null && transaction.type != activeType) return false;
-      if (activeDate == 'This Month') {
-        return _isSameMonth(transaction.date, DateTime.now());
+      if (activeDate != 'All') {
+        final txMonth = _formatMonth(transaction.date);
+        return txMonth == activeDate;
       }
       return true;
     }).toList();
@@ -52,6 +56,7 @@ class HistoryPage extends StatelessWidget {
                 onTypeChange: onTypeChange,
                 activeDate: activeDate,
                 onDateChange: onDateChange,
+                availableMonths: availableMonths,
               ),
               const SizedBox(height: 16),
             ],
@@ -100,8 +105,37 @@ class HistoryPage extends StatelessWidget {
     );
   }
 
-  bool _isSameMonth(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && date1.month == date2.month;
+  List<String> _extractUniqueMonths(List<Transaction> items) {
+    final months = <String>{};
+    // Always add "This Month" as an option if it's not strictly derived from data,
+    // or you can just derive strictly from data.
+    // The user request was "show available months".
+    for (final tx in items) {
+      months.add(_formatMonth(tx.date));
+    }
+    // Sort logic could go here, e.g. recent months first
+    final sorted = months.toList();
+    // Simple sort for now, ideally sort by date value
+    return sorted;
+  }
+
+  String _formatMonth(DateTime date) {
+    // Format: "January 2024"
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[date.month - 1]} ${date.year}';
   }
 
   List<Object> _buildFlatList(List<Transaction> items) {

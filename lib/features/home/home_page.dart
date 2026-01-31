@@ -24,7 +24,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   BottomTab _activeTab = BottomTab.home;
   TransactionType? _filterType;
-  String _dateFilter = 'This Month';
+  String _dateFilter = 'All';
 
   @override
   Widget build(BuildContext context) {

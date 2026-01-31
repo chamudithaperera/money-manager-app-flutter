@@ -165,4 +165,12 @@ abstract final class AppTextStyles {
     fontSize: 14,
     fontWeight: FontWeight.w500,
   );
+
+  // General body text
+  static const TextStyle body = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+  );
 }
