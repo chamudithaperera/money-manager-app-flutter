@@ -9,7 +9,17 @@ class TransactionRepository {
   Future<List<Transaction>> getAll() async {
     final database = await _db.database;
     final rows = await database.query('transactions', orderBy: 'date DESC');
-    return rows.map((row) => Transaction.fromMap(row)).toList();
+
+    final transactions = <Transaction>[];
+    for (final row in rows) {
+      try {
+        transactions.add(Transaction.fromMap(row));
+      } catch (e) {
+        // Skip invalid rows to prevent app crash/dataloss view
+        print('Error parsing transaction row: $e');
+      }
+    }
+    return transactions;
   }
 
   Future<Transaction> add(Transaction transaction) async {
