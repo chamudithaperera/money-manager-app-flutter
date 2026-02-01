@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math; // Import math for min/max
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -21,25 +22,37 @@ class ProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
-  late DateTime _selectedMonth;
+  DateTime? _selectedMonth; // Null represents "All"
 
   @override
   void initState() {
     super.initState();
-    _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    _selectedMonth = null;
   }
 
   @override
   Widget build(BuildContext context) {
     // Collect available months
     final availableMonths = _getAvailableMonths();
-    if (!availableMonths.any((d) => isSameMonth(d, _selectedMonth))) {
-      if (availableMonths.isNotEmpty) {
-        _selectedMonth = availableMonths.first;
+
+    // Ensure selection is valid
+    if (_selectedMonth != null &&
+        !availableMonths.contains(_selectedMonth) &&
+        !availableMonths.any(
+          (d) => d != null && isSameMonth(d, _selectedMonth!),
+        )) {
+      // If selected month (not null) is invalid, fallback
+      // Here we can fallback to the first available month or null (All)
+      // Let's fallback to current month if in list, otherwise null
+      final now = DateTime(DateTime.now().year, DateTime.now().month);
+      if (availableMonths.any((d) => d != null && isSameMonth(d, now))) {
+        _selectedMonth = now;
+      } else {
+        _selectedMonth = null;
       }
     }
 
-    final dailyStats = _getDailyStats(_selectedMonth);
+    final chartData = _getChartData(_selectedMonth);
     final currency =
         ref.watch(settingsProvider).asData?.value.currencySymbol ??
         AppConstants.currencySymbol;
@@ -53,7 +66,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           const SizedBox(height: 32),
           _buildMonthSelector(availableMonths),
           const SizedBox(height: 16),
-          _buildChartSection(dailyStats, currency),
+          _buildChartSection(chartData, currency),
           const SizedBox(height: 32),
           Text('Settings', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 16),
@@ -87,11 +100,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool isSameMonth(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month;
 
-  List<DateTime> _getAvailableMonths() {
+  List<DateTime?> _getAvailableMonths() {
     final Set<String> uniqueMonths = {};
     final List<DateTime> months = [];
 
-    // Always include current month
+    // Always include current month in the list if we have transactions, or just always?
+    // Let's just rely on transaction data + current month relative to now.
     final now = DateTime.now();
     final currentKey = '${now.year}-${now.month}';
     uniqueMonths.add(currentKey);
@@ -106,10 +120,19 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
 
     months.sort((a, b) => b.compareTo(a)); // Newest first
-    return months;
+    return [null, ...months]; // Prepend null for "All"
   }
 
-  Map<int, _DailyStats> _getDailyStats(DateTime month) {
+  // Unified data access
+  List<_ChartPoint> _getChartData(DateTime? month) {
+    if (month != null) {
+      return _getDailyChartData(month);
+    } else {
+      return _getMonthlyChartData();
+    }
+  }
+
+  List<_ChartPoint> _getDailyChartData(DateTime month) {
     final Map<int, _DailyStats> stats = {};
     final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
 
@@ -122,27 +145,102 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       if (isSameMonth(tx.date, month)) {
         final day = tx.date.day;
         final current = stats[day]!;
-        switch (tx.type) {
-          case TransactionType.income:
-            current.income += tx.amount;
-            break;
-          case TransactionType.expense:
-            current.expense += tx.amount;
-            break;
-          case TransactionType.savings:
-            current.savings += tx.amount;
-            break;
-          case TransactionType.savingDeduct:
-            current.savingDeduct += tx.amount;
-            break;
-        }
+        _accumulateStats(current, tx);
       }
     }
-    return stats;
+
+    // Convert to ChartPoints
+    final List<_ChartPoint> points = [];
+    final sortedDays = stats.keys.toList()..sort();
+    for (final day in sortedDays) {
+      final stat = stats[day]!;
+      points.add(
+        _ChartPoint(
+          label: day.toString(),
+          income: stat.income,
+          expense: stat.expense,
+          savings: stat.savings,
+          deduct: stat.savingDeduct,
+        ),
+      );
+    }
+    return points;
   }
 
-  Widget _buildMonthSelector(List<DateTime> months) {
+  List<_ChartPoint> _getMonthlyChartData() {
+    final Map<String, _DailyStats> stats = {}; // Key: "YYYY-MM-DD"
+    final List<DateTime> dateKeys = [];
+
+    for (final tx in widget.transactions) {
+      // Create key based on full date
+      final key =
+          '${tx.date.year}-${tx.date.month.toString().padLeft(2, '0')}-${tx.date.day.toString().padLeft(2, '0')}';
+      if (!stats.containsKey(key)) {
+        stats[key] = _DailyStats();
+        dateKeys.add(DateTime(tx.date.year, tx.date.month, tx.date.day));
+      }
+      final current = stats[key]!;
+      _accumulateStats(current, tx);
+    }
+
+    final sortedUniqueDates = dateKeys.toSet().toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    final List<_ChartPoint> points = [];
+    final formatter = DateFormat('MMM d');
+
+    for (final date in sortedUniqueDates) {
+      final key =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final stat = stats[key] ?? _DailyStats();
+      points.add(
+        _ChartPoint(
+          label: formatter.format(date),
+          income: stat.income,
+          expense: stat.expense,
+          savings: stat.savings,
+          deduct: stat.savingDeduct,
+        ),
+      );
+    }
+    return points;
+  }
+
+  void _accumulateStats(_DailyStats current, Transaction tx) {
+    switch (tx.type) {
+      case TransactionType.income:
+        current.income += tx.amount;
+        break;
+      case TransactionType.expense:
+        current.expense += tx.amount;
+        break;
+      case TransactionType.savings:
+        current.savings += tx.amount;
+        break;
+      case TransactionType.savingDeduct:
+        current.savingDeduct += tx.amount;
+        break;
+    }
+  }
+
+  Widget _buildMonthSelector(List<DateTime?> months) {
     final formatter = DateFormat('MMMM yyyy');
+
+    // Find effective value
+    DateTime? groupValue;
+    if (_selectedMonth == null) {
+      groupValue = null;
+    } else {
+      // Match by value equality
+      try {
+        groupValue = months.firstWhere(
+          (m) => m != null && isSameMonth(m, _selectedMonth!),
+        );
+      } catch (e) {
+        groupValue = null; // Should not happen given build logic
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -151,34 +249,28 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<DateTime>(
-          value: months.firstWhere(
-            (m) => isSameMonth(m, _selectedMonth),
-            orElse: () => months.first,
-          ),
+        child: DropdownButton<DateTime?>(
+          value: groupValue,
           dropdownColor: AppColors.surface,
           icon: const Icon(Icons.calendar_month, color: AppColors.primary),
           isExpanded: true,
           style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
           items: months.map((date) {
-            return DropdownMenuItem(
+            return DropdownMenuItem<DateTime?>(
               value: date,
-              child: Text(formatter.format(date)),
+              child: Text(date == null ? 'All Time' : formatter.format(date)),
             );
           }).toList(),
           onChanged: (value) {
-            if (value != null) {
-              setState(() => _selectedMonth = value);
-            }
+            setState(() => _selectedMonth = value);
           },
         ),
       ),
     );
   }
 
-  Widget _buildChartSection(Map<int, _DailyStats> dailyStats, String currency) {
-    final days = dailyStats.keys.toList()..sort();
-    if (days.isEmpty) return const SizedBox.shrink();
+  Widget _buildChartSection(List<_ChartPoint> data, String currency) {
+    if (data.isEmpty) return const SizedBox.shrink();
 
     // Prepare spots
     final List<FlSpot> incomeSpots = [];
@@ -189,34 +281,61 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     // Calculate totals
     double totalIncome = 0;
     double totalExpense = 0;
-    double totalSavings = 0;
+    double totalSavingsRaw = 0;
     double totalDeduct = 0;
+
     double maxY = 0;
+    double minY = 0;
 
-    for (final day in days) {
-      final stat = dailyStats[day]!;
-      incomeSpots.add(FlSpot(day.toDouble(), stat.income));
-      expenseSpots.add(FlSpot(day.toDouble(), stat.expense));
-      savingsSpots.add(FlSpot(day.toDouble(), stat.savings));
-      deductSpots.add(FlSpot(day.toDouble(), stat.savingDeduct));
+    for (int i = 0; i < data.length; i++) {
+      final point = data[i];
+      final x = i.toDouble();
 
-      totalIncome += stat.income;
-      totalExpense += stat.expense;
-      totalSavings += stat.savings;
-      totalDeduct += stat.savingDeduct;
+      // Calculate NET savings for the point (as requested "deduct reduce from saving")
+      // Visualizing the Net Savings flow
+      final netSavings = point.savings - point.deduct;
 
-      maxY = [
-        maxY,
-        stat.income,
-        stat.expense,
-        stat.savings,
-        stat.savingDeduct,
-      ].reduce((a, b) => a > b ? a : b);
+      incomeSpots.add(FlSpot(x, point.income));
+      expenseSpots.add(FlSpot(x, point.expense));
+      savingsSpots.add(FlSpot(x, netSavings)); // Plot Net Savings
+      deductSpots.add(FlSpot(x, point.deduct));
+
+      totalIncome += point.income;
+      totalExpense += point.expense;
+      totalSavingsRaw += point.savings;
+      totalDeduct += point.deduct;
+
+      final pointMax = [
+        point.income,
+        point.expense,
+        netSavings,
+        point.deduct,
+      ].reduce(math.max);
+      final pointMin = [
+        point.income,
+        point.expense,
+        netSavings,
+        point.deduct,
+      ].reduce(math.min);
+
+      if (pointMax > maxY) maxY = pointMax;
+      if (pointMin < minY) minY = pointMin;
     }
 
-    // Add some buffer to maxY
+    double totalNetSavings = totalSavingsRaw - totalDeduct;
+
+    // Add buffers
     maxY = maxY * 1.2;
     if (maxY == 0) maxY = 100;
+    // Lower buffer if we have negative values
+    if (minY < 0)
+      minY = minY * 1.2;
+    else
+      minY = 0;
+
+    // Grid interval
+    final interval = (maxY - minY) / 5;
+    final double safeInterval = interval <= 0 ? 20 : interval;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -243,18 +362,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
+              // Show Net Savings in legend
               _chartLegend(
                 'Savings',
                 AppColors.savings,
-                totalSavings,
+                totalNetSavings,
                 currency,
               ),
-              _chartLegend(
-                'From Sav.',
-                Colors.orange,
-                totalDeduct,
-                currency,
-              ), // Custom color for deduct
+              _chartLegend('From Sav.', Colors.orange, totalDeduct, currency),
             ],
           ),
           const SizedBox(height: 24),
@@ -265,7 +380,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxY / 5,
+                  horizontalInterval: safeInterval,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: AppColors.border.withValues(alpha: 0.1),
@@ -285,14 +400,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 30,
-                      interval: 5,
+                      interval: 1, // Show all or skip? For daily use dynamic?
                       getTitlesWidget: (value, meta) {
-                        if (value == 0 || value > days.last)
+                        final index = value.toInt();
+                        if (index < 0 || index >= data.length)
                           return const SizedBox.shrink();
+
+                        // Optimize labels: if many points, skip some
+                        if (data.length > 10 &&
+                            index % (data.length ~/ 6) != 0) {
+                          return const SizedBox.shrink();
+                        }
+
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
-                            value.toInt().toString(),
+                            data[index].label,
                             style: AppTextStyles.caption.copyWith(fontSize: 10),
                           ),
                         );
@@ -302,10 +425,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      interval: maxY / 5,
+                      interval: safeInterval,
                       reservedSize: 40,
                       getTitlesWidget: (value, meta) {
-                        if (value == 0) return const SizedBox.shrink();
+                        // Avoid clutter
+                        if (value == minY && minY == 0)
+                          return const SizedBox.shrink();
+
                         return Text(
                           _compactCurrency(value),
                           style: AppTextStyles.caption.copyWith(fontSize: 10),
@@ -315,9 +441,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                minX: 1,
-                maxX: days.last.toDouble(),
-                minY: 0,
+                minX: 0,
+                maxX: (data.length - 1).toDouble(),
+                minY: minY,
                 maxY: maxY,
                 lineBarsData: [
                   _lineData(incomeSpots, AppColors.primary),
@@ -330,6 +456,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     getTooltipColor: (touchedSpot) => AppColors.surfaceVariant,
                     getTooltipItems: (touchedSpots) {
                       return touchedSpots.map((spot) {
+                        // Find matching chart point logic if needed, but Y value is mostly enough
                         return LineTooltipItem(
                           '${spot.y.toStringAsFixed(0)}',
                           AppTextStyles.caption.copyWith(
@@ -387,7 +514,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   String _compactCurrency(double value) {
-    if (value >= 1000) {
+    if (value.abs() >= 1000) {
       return '${(value / 1000).toStringAsFixed(1)}k';
     }
     return value.toStringAsFixed(0);
@@ -649,4 +776,20 @@ class _DailyStats {
   double expense = 0;
   double savings = 0;
   double savingDeduct = 0;
+}
+
+class _ChartPoint {
+  _ChartPoint({
+    required this.label,
+    required this.income,
+    required this.expense,
+    required this.savings,
+    required this.deduct,
+  });
+
+  final String label;
+  final double income;
+  final double expense;
+  final double savings;
+  final double deduct;
 }
