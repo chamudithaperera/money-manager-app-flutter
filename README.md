@@ -33,11 +33,19 @@ Money Manager is a cross-platform mobile application designed to help users mana
 - Long-press to edit or delete transactions
 - Real-time search and filter updates
 
+**Wishlist Management**
+- Dedicated tab for tracking future purchases and goals
+- Add items with estimated price and target date
+- Edit and update item details
+- Track progress towards financial goals
+- Seamless integration with the main navigation
+
 **Profile & Analytics**
-- Monthly financial analysis with detailed breakdowns
-- Visual representation of Income, Expenses, and Savings per month
-- Percentage-based comparison bars for each category
-- Month-over-month trend analysis
+- Advanced financial analytics with interactive line charts
+- Visual trend analysis of Income, Expenses, Savings, and Savings Deductions
+- Date-based filtering with "All Time" and specific month views
+- Daily breakdown of financial activity
+- Net savings calculation and visualization
 - Customizable user profile with photo and display name
 - Currency selection from multiple international currencies
 
@@ -101,6 +109,7 @@ Money Manager is a cross-platform mobile application designed to help users mana
 - **Material Design 3** - Modern design system
 - **Custom theme system** - Dark theme with gradient backgrounds
 - **intl 0.20.2** - Internationalization and date formatting
+- **fl_chart 0.69.0** - Powerful chart library for data visualization
 
 ### Media & Assets
 - **image_picker 1.2.1** - Camera and gallery access for profile photos
@@ -146,6 +155,15 @@ lib/
 │   │   └── onboarding_page.dart      # First-time user setup
 │   ├── profile/
 │   │   └── profile_page.dart         # User profile and analytics
+│   ├── wishlist/
+│   │   ├── models/
+│   │   │   └── wishlist_item.dart    # Wishlist data model
+│   │   ├── providers/
+│   │   │   └── wishlist_provider.dart # Wishlist state management
+│   │   ├── widgets/
+│   │   │   ├── add_wishlist_modal.dart # Add/Edit wishlist item
+│   │   │   └── wishlist_list_item.dart # Wishlist item widget
+│   │   └── wishlist_page.dart        # Wishlist main view
 │   ├── splash/
 │   │   └── splash_screen.dart        # App launch screen
 │   └── transaction_history/
@@ -155,7 +173,7 @@ lib/
 │   ├── settings_provider.dart        # User settings management
 │   └── transaction_providers.dart    # Transaction state management
 ├── shared/
-│   └── widgets/
+│   ├── widgets/
 │       └── bottom_nav.dart           # Bottom navigation bar
 └── main.dart                          # Application entry point
 ```
@@ -307,6 +325,13 @@ CREATE INDEX idx_transactions_type ON transactions(type);
 5. Select date if different from today
 6. Tap "Add Transaction"
 
+### Managing Wishlist
+1. Navigate to "Wishlist" tab
+2. Tap "+" to add a new item
+3. Enter item details (Name, Price, Date)
+4. View list of wish items
+5. Long-press to edit or update
+
 ### Viewing History
 1. Navigate to "Activities" tab
 2. Use filter chips to filter by type
@@ -316,10 +341,10 @@ CREATE INDEX idx_transactions_type ON transactions(type);
 
 ### Managing Profile
 1. Navigate to "Profile" tab
-2. View monthly analysis reports
-3. Tap "Edit Profile" to change name or photo
-4. Tap "Change Currency" to select currency symbol
-5. Changes apply app-wide instantly
+2. Use month selector to view specific periods or "All Time"
+3. Interactive chart displays financial trends
+4. Tap "Edit Profile" to change name or photo
+5. Tap "Change Currency" to select currency symbol
 
 ### Changing Currency
 1. Profile tab > Settings > Change Currency
@@ -368,7 +393,7 @@ Located in `lib/core/constants/app_constants.dart`:
 Theme defined in `lib/core/theme/`:
 - `app_colors.dart` - Color palette
 - `app_text_styles.dart` - Typography
-- `app_radius.dart` - Border radius values
+- `app_radius.dart` - Border radius constants
 - `app_theme.dart` - Material theme configuration
 
 ## Known Issues
@@ -407,6 +432,13 @@ Potential features for future versions:
 This project is private and proprietary. All rights reserved.
 
 ## Version History
+
+### Version 1.1.0
+- Added Wishlist feature for tracking future expenses
+- Enhanced Profile analytics with interactive line charts
+- Added daily and monthly financial breakdown
+- Implemented monthly filtering for analytics
+- Improved UI with new navigation structure
 
 ### Version 1.0.0
 - Initial release
