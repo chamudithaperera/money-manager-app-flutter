@@ -9,6 +9,7 @@ import '../../providers/settings_provider.dart';
 import '../../providers/transaction_providers.dart';
 import '../../shared/widgets/bottom_nav.dart';
 import '../transaction_history/history_page.dart';
+import '../wishlist/wishlist_page.dart';
 import 'models/transaction.dart';
 import 'widgets/activity_item.dart';
 import 'widgets/add_transaction_modal.dart';
@@ -49,6 +50,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                       return _buildHome(items, stats);
                     case BottomTab.activities:
                       return _buildActivities(items);
+                    case BottomTab.wishlist:
+                      return const WishlistPage();
                     case BottomTab.profile:
                       return _buildProfile(items);
                   }

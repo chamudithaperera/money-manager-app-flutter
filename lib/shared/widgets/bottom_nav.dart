@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/theme.dart';
 
-enum BottomTab { home, activities, profile }
+enum BottomTab { home, activities, wishlist, profile }
 
 class BottomNav extends StatelessWidget {
   const BottomNav({
@@ -44,6 +44,12 @@ class BottomNav extends StatelessWidget {
                 icon: Icons.assignment_outlined,
                 isActive: activeTab == BottomTab.activities,
                 onTap: () => onTabChange(BottomTab.activities),
+              ),
+              _NavItem(
+                label: 'Wishlist',
+                icon: Icons.star_outline,
+                isActive: activeTab == BottomTab.wishlist,
+                onTap: () => onTabChange(BottomTab.wishlist),
               ),
               _NavItem(
                 label: 'Profile',
