@@ -186,6 +186,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final List<FlSpot> savingsSpots = [];
     final List<FlSpot> deductSpots = [];
 
+    // Calculate totals
+    double totalIncome = 0;
+    double totalExpense = 0;
+    double totalSavings = 0;
+    double totalDeduct = 0;
     double maxY = 0;
 
     for (final day in days) {
@@ -194,6 +199,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       expenseSpots.add(FlSpot(day.toDouble(), stat.expense));
       savingsSpots.add(FlSpot(day.toDouble(), stat.savings));
       deductSpots.add(FlSpot(day.toDouble(), stat.savingDeduct));
+
+      totalIncome += stat.income;
+      totalExpense += stat.expense;
+      totalSavings += stat.savings;
+      totalDeduct += stat.savingDeduct;
 
       maxY = [
         maxY,
@@ -220,18 +230,30 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _chartLegend('Income', AppColors.primary),
-              _chartLegend('Expense', AppColors.expense),
+              _chartLegend('Income', AppColors.primary, totalIncome, currency),
+              _chartLegend(
+                'Expense',
+                AppColors.expense,
+                totalExpense,
+                currency,
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _chartLegend('Savings', AppColors.savings),
+              _chartLegend(
+                'Savings',
+                AppColors.savings,
+                totalSavings,
+                currency,
+              ),
               _chartLegend(
                 'From Sav.',
                 Colors.orange,
+                totalDeduct,
+                currency,
               ), // Custom color for deduct
             ],
           ),
@@ -342,7 +364,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  Widget _chartLegend(String label, Color color) {
+  Widget _chartLegend(
+    String label,
+    Color color,
+    double amount,
+    String currency,
+  ) {
     return Row(
       children: [
         Container(
@@ -351,7 +378,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(label, style: AppTextStyles.caption),
+        Text(
+          '$label: $currency${amount.toStringAsFixed(0)}',
+          style: AppTextStyles.caption,
+        ),
       ],
     );
   }
