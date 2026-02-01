@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 @immutable
 class WishlistItem {
   const WishlistItem({
-    required this.id,
+    this.id,
     required this.name,
     required this.description,
     required this.estimatedPrice,
@@ -11,7 +11,7 @@ class WishlistItem {
     this.isCompleted = false,
   });
 
-  final String id;
+  final int? id;
   final String name;
   final String description;
   final double estimatedPrice;
@@ -19,7 +19,7 @@ class WishlistItem {
   final bool isCompleted;
 
   WishlistItem copyWith({
-    String? id,
+    int? id,
     String? name,
     String? description,
     double? estimatedPrice,
@@ -33,6 +33,28 @@ class WishlistItem {
       estimatedPrice: estimatedPrice ?? this.estimatedPrice,
       estimatedDate: estimatedDate ?? this.estimatedDate,
       isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'name': name,
+      'description': description,
+      'estimated_price': estimatedPrice,
+      'estimated_date': estimatedDate.toIso8601String(),
+      'is_completed': isCompleted ? 1 : 0,
+    };
+  }
+
+  factory WishlistItem.fromMap(Map<String, dynamic> map) {
+    return WishlistItem(
+      id: map['id'] as int?,
+      name: map['name'] as String,
+      description: map['description'] as String,
+      estimatedPrice: (map['estimated_price'] as num).toDouble(),
+      estimatedDate: DateTime.parse(map['estimated_date'] as String),
+      isCompleted: (map['is_completed'] as int) == 1,
     );
   }
 }

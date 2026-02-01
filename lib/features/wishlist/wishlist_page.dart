@@ -12,7 +12,7 @@ class WishlistPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final wishlistItems = ref.watch(wishlistProvider);
+    final wishlistAsync = ref.watch(wishlistProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -30,20 +30,43 @@ class WishlistPage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
-                itemCount: wishlistItems.length,
-                itemBuilder: (context, index) {
-                  final item = wishlistItems[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: WishlistItemWidget(
-                      item: item,
-                      onLongPress: () => _showItemActions(context, ref, item),
-                      onTap: () => _showAddSheet(context, ref, initial: item),
-                    ),
+              child: wishlistAsync.when(
+                data: (wishlistItems) {
+                  if (wishlistItems.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No items in your wishlist yet.',
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                    itemCount: wishlistItems.length,
+                    itemBuilder: (context, index) {
+                      final item = wishlistItems[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: WishlistItemWidget(
+                          item: item,
+                          onLongPress: () =>
+                              _showItemActions(context, ref, item),
+                          onTap: () =>
+                              _showAddSheet(context, ref, initial: item),
+                        ),
+                      );
+                    },
                   );
                 },
+                error: (error, stack) => Center(
+                  child: Text(
+                    'Error loading wishlist: $error',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
               ),
             ),
           ],
@@ -98,7 +121,7 @@ class WishlistPage extends ConsumerWidget {
           initial: initial,
           onSubmit: (data) {
             final item = WishlistItem(
-              id: data.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              id: data.id,
               name: data.name,
               description: data.description,
               estimatedPrice: data.estimatedPrice,
@@ -108,7 +131,7 @@ class WishlistPage extends ConsumerWidget {
             if (data.id == null) {
               notifier.add(item);
             } else {
-              notifier.update(item);
+              notifier.updateItem(item);
             }
           },
         );
@@ -178,8 +201,8 @@ class WishlistPage extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed == true) {
-      ref.read(wishlistProvider.notifier).remove(item.id);
+    if (confirmed == true && item.id != null) {
+      ref.read(wishlistProvider.notifier).remove(item.id!);
     }
   }
 }

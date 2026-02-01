@@ -19,7 +19,7 @@ class AppDatabase {
     final dbPath = p.join(directory.path, 'money_manager.db');
     return openDatabase(
       dbPath,
-      version: 2, // Bumped version for index migration
+      version: 3, // Bumped for wishlist
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE transactions (
@@ -29,6 +29,17 @@ class AppDatabase {
             type TEXT NOT NULL,
             amount REAL NOT NULL,
             date TEXT NOT NULL
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE wishlist_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            estimated_price REAL NOT NULL,
+            estimated_date TEXT NOT NULL,
+            is_completed INTEGER NOT NULL
           )
         ''');
 
@@ -49,6 +60,18 @@ class AppDatabase {
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type)',
           );
+        }
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS wishlist_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              description TEXT NOT NULL,
+              estimated_price REAL NOT NULL,
+              estimated_date TEXT NOT NULL,
+              is_completed INTEGER NOT NULL
+            )
+          ''');
         }
       },
     );
