@@ -4,7 +4,10 @@ import '../local/app_database.dart';
 class WishlistRepository {
   Future<List<WishlistItem>> getAllItems() async {
     final db = await AppDatabase.instance.database;
-    final result = await db.query('wishlist_items');
+    final result = await db.query(
+      'wishlist_items',
+      orderBy: 'estimated_date ASC',
+    );
     return result.map((map) => WishlistItem.fromMap(map)).toList();
   }
 

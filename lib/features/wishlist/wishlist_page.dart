@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/theme.dart';
 import 'models/wishlist_item.dart';
@@ -42,20 +43,48 @@ class WishlistPage extends ConsumerWidget {
                       ),
                     );
                   }
+                  final grouped = <String, List<WishlistItem>>{};
+                  for (final item in wishlistItems) {
+                    final key = DateFormat(
+                      'MMMM yyyy',
+                    ).format(item.estimatedDate);
+                    grouped.putIfAbsent(key, () => []).add(item);
+                  }
+
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
-                    itemCount: wishlistItems.length,
+                    itemCount: grouped.length,
                     itemBuilder: (context, index) {
-                      final item = wishlistItems[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: WishlistItemWidget(
-                          item: item,
-                          onLongPress: () =>
-                              _showItemActions(context, ref, item),
-                          onTap: () =>
-                              _showAddSheet(context, ref, initial: item),
-                        ),
+                      final key = grouped.keys.elementAt(index);
+                      final items = grouped[key]!;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Text(
+                              key,
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          ...items.map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: WishlistItemWidget(
+                                item: item,
+                                onLongPress: () =>
+                                    _showItemActions(context, ref, item),
+                                onTap: () =>
+                                    _showAddSheet(context, ref, initial: item),
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   );
