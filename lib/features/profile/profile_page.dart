@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,9 +21,28 @@ class ProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
+  late DateTime _selectedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final report = _generateReport(widget.transactions);
+    // Collect available months
+    final availableMonths = _getAvailableMonths();
+    if (!availableMonths.any((d) => isSameMonth(d, _selectedMonth))) {
+      if (availableMonths.isNotEmpty) {
+        _selectedMonth = availableMonths.first;
+      }
+    }
+
+    final dailyStats = _getDailyStats(_selectedMonth);
+    final currency =
+        ref.watch(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
@@ -31,32 +51,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         children: [
           _buildProfileHeader(),
           const SizedBox(height: 32),
-          Text('Monthly Analysis', style: AppTextStyles.sectionHeader),
+          _buildMonthSelector(availableMonths),
           const SizedBox(height: 16),
-          if (report.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text(
-                'No transaction data available yet.',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: report.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _MonthCard(
-                stats: report[index],
-                currency:
-                    ref.watch(settingsProvider).asData?.value.currencySymbol ??
-                    AppConstants.currencySymbol,
-              ),
-            ),
+          _buildChartSection(dailyStats, currency),
           const SizedBox(height: 32),
           Text('Settings', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 16),
@@ -87,6 +84,286 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
+  bool isSameMonth(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month;
+
+  List<DateTime> _getAvailableMonths() {
+    final Set<String> uniqueMonths = {};
+    final List<DateTime> months = [];
+
+    // Always include current month
+    final now = DateTime.now();
+    final currentKey = '${now.year}-${now.month}';
+    uniqueMonths.add(currentKey);
+    months.add(DateTime(now.year, now.month));
+
+    for (final tx in widget.transactions) {
+      final key = '${tx.date.year}-${tx.date.month}';
+      if (!uniqueMonths.contains(key)) {
+        uniqueMonths.add(key);
+        months.add(DateTime(tx.date.year, tx.date.month));
+      }
+    }
+
+    months.sort((a, b) => b.compareTo(a)); // Newest first
+    return months;
+  }
+
+  Map<int, _DailyStats> _getDailyStats(DateTime month) {
+    final Map<int, _DailyStats> stats = {};
+    final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
+
+    // Initialize all days
+    for (int i = 1; i <= daysInMonth; i++) {
+      stats[i] = _DailyStats();
+    }
+
+    for (final tx in widget.transactions) {
+      if (isSameMonth(tx.date, month)) {
+        final day = tx.date.day;
+        final current = stats[day]!;
+        switch (tx.type) {
+          case TransactionType.income:
+            current.income += tx.amount;
+            break;
+          case TransactionType.expense:
+            current.expense += tx.amount;
+            break;
+          case TransactionType.savings:
+            current.savings += tx.amount;
+            break;
+          case TransactionType.savingDeduct:
+            current.savingDeduct += tx.amount;
+            break;
+        }
+      }
+    }
+    return stats;
+  }
+
+  Widget _buildMonthSelector(List<DateTime> months) {
+    final formatter = DateFormat('MMMM yyyy');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<DateTime>(
+          value: months.firstWhere(
+            (m) => isSameMonth(m, _selectedMonth),
+            orElse: () => months.first,
+          ),
+          dropdownColor: AppColors.surface,
+          icon: const Icon(Icons.calendar_month, color: AppColors.primary),
+          isExpanded: true,
+          style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+          items: months.map((date) {
+            return DropdownMenuItem(
+              value: date,
+              child: Text(formatter.format(date)),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _selectedMonth = value);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartSection(Map<int, _DailyStats> dailyStats, String currency) {
+    final days = dailyStats.keys.toList()..sort();
+    if (days.isEmpty) return const SizedBox.shrink();
+
+    // Prepare spots
+    final List<FlSpot> incomeSpots = [];
+    final List<FlSpot> expenseSpots = [];
+    final List<FlSpot> savingsSpots = [];
+    final List<FlSpot> deductSpots = [];
+
+    double maxY = 0;
+
+    for (final day in days) {
+      final stat = dailyStats[day]!;
+      incomeSpots.add(FlSpot(day.toDouble(), stat.income));
+      expenseSpots.add(FlSpot(day.toDouble(), stat.expense));
+      savingsSpots.add(FlSpot(day.toDouble(), stat.savings));
+      deductSpots.add(FlSpot(day.toDouble(), stat.savingDeduct));
+
+      maxY = [
+        maxY,
+        stat.income,
+        stat.expense,
+        stat.savings,
+        stat.savingDeduct,
+      ].reduce((a, b) => a > b ? a : b);
+    }
+
+    // Add some buffer to maxY
+    maxY = maxY * 1.2;
+    if (maxY == 0) maxY = 100;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _chartLegend('Income', AppColors.primary),
+              _chartLegend('Expense', AppColors.expense),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _chartLegend('Savings', AppColors.savings),
+              _chartLegend(
+                'From Sav.',
+                Colors.orange,
+              ), // Custom color for deduct
+            ],
+          ),
+          const SizedBox(height: 24),
+          AspectRatio(
+            aspectRatio: 1.5,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: maxY / 5,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: AppColors.border.withValues(alpha: 0.1),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 5,
+                      getTitlesWidget: (value, meta) {
+                        if (value == 0 || value > days.last)
+                          return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            value.toInt().toString(),
+                            style: AppTextStyles.caption.copyWith(fontSize: 10),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: maxY / 5,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        if (value == 0) return const SizedBox.shrink();
+                        return Text(
+                          _compactCurrency(value),
+                          style: AppTextStyles.caption.copyWith(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 1,
+                maxX: days.last.toDouble(),
+                minY: 0,
+                maxY: maxY,
+                lineBarsData: [
+                  _lineData(incomeSpots, AppColors.primary),
+                  _lineData(expenseSpots, AppColors.expense),
+                  _lineData(savingsSpots, AppColors.savings),
+                  _lineData(deductSpots, Colors.orange),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (touchedSpot) => AppColors.surfaceVariant,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        return LineTooltipItem(
+                          '${spot.y.toStringAsFixed(0)}',
+                          AppTextStyles.caption.copyWith(
+                            color: spot.bar.color,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  LineChartBarData _lineData(List<FlSpot> spots, Color color) {
+    return LineChartBarData(
+      spots: spots,
+      isCurved: true,
+      color: color,
+      barWidth: 2,
+      isStrokeCapRound: true,
+      dotData: const FlDotData(show: false),
+      belowBarData: BarAreaData(
+        show: true,
+        color: color.withValues(alpha: 0.1),
+      ),
+    );
+  }
+
+  Widget _chartLegend(String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: AppTextStyles.caption),
+      ],
+    );
+  }
+
+  String _compactCurrency(double value) {
+    if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(1)}k';
+    }
+    return value.toStringAsFixed(0);
+  }
+
+  // Settings methods
   Future<void> _showEditProfileDialog() async {
     final settings = ref.read(settingsProvider).asData?.value;
     final initialName = settings?.displayName ?? AppConstants.userDisplayName;
@@ -335,182 +612,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       ],
     );
   }
-
-  List<_MonthStats> _generateReport(List<Transaction> transactions) {
-    final Map<String, _MonthStats> stats = {};
-
-    for (final tx in transactions) {
-      final key = '${tx.date.year}-${tx.date.month}';
-      if (!stats.containsKey(key)) {
-        stats[key] = _MonthStats(date: DateTime(tx.date.year, tx.date.month));
-      }
-
-      final current = stats[key]!;
-      if (tx.type == TransactionType.income) {
-        current.income += tx.amount;
-      } else if (tx.type == TransactionType.expense) {
-        current.expenses += tx.amount;
-      } else if (tx.type == TransactionType.savings) {
-        current.savings += tx.amount;
-      }
-    }
-
-    final list = stats.values.toList();
-    list.sort((a, b) => b.date.compareTo(a.date));
-    return list;
-  }
 }
 
-class _MonthStats {
-  _MonthStats({
-    required this.date,
-    this.income = 0,
-    this.expenses = 0,
-    this.savings = 0,
-  });
-
-  final DateTime date;
-  double income;
-  double expenses;
-  double savings;
-}
-
-class _MonthCard extends StatelessWidget {
-  const _MonthCard({required this.stats, required this.currency});
-
-  final _MonthStats stats;
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    final formatter = DateFormat('MMMM yyyy');
-    final total = stats.income - stats.expenses - stats.savings;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                formatter.format(stats.date),
-                style: AppTextStyles.sectionLabel.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                '${total >= 0 ? "+" : ""}$currency ${total.toStringAsFixed(0)}',
-                style: AppTextStyles.summaryAmount.copyWith(
-                  color: total >= 0 ? AppColors.primary : AppColors.expense,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _Bar(
-            label: 'Income',
-            amount: stats.income,
-            color: AppColors.primary,
-            total: stats.income + stats.expenses + stats.savings,
-            currency: currency,
-          ),
-          const SizedBox(height: 8),
-          _Bar(
-            label: 'Expense',
-            amount: stats.expenses,
-            color: AppColors.expense,
-            total: stats.income + stats.expenses + stats.savings,
-            currency: currency,
-          ),
-          const SizedBox(height: 8),
-          _Bar(
-            label: 'Savings',
-            amount: stats.savings,
-            color: AppColors.savings,
-            total: stats.income + stats.expenses + stats.savings,
-            currency: currency,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Bar extends StatelessWidget {
-  const _Bar({
-    required this.label,
-    required this.amount,
-    required this.color,
-    required this.total,
-    required this.currency,
-  });
-
-  final String label;
-  final double amount;
-  final Color color;
-  final double total;
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    if (amount <= 0) return const SizedBox.shrink();
-    // Prevent division by zero if total is 0
-    final percentage = total > 0 ? (amount / total) : 0.0;
-
-    return Row(
-      children: [
-        SizedBox(
-          width: 60,
-          child: Text(
-            label,
-            style: AppTextStyles.caption.copyWith(fontSize: 12),
-          ),
-        ),
-        Expanded(
-          child: Stack(
-            children: [
-              Container(
-                height: 6,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: percentage.clamp(0.0, 1.0),
-                child: Container(
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 60,
-          child: Text(
-            '$currency${amount.toStringAsFixed(0)}',
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.end,
-          ),
-        ),
-      ],
-    );
-  }
+class _DailyStats {
+  double income = 0;
+  double expense = 0;
+  double savings = 0;
+  double savingDeduct = 0;
 }
