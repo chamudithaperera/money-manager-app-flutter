@@ -4,29 +4,7 @@ import '../models/wishlist_item.dart';
 class WishlistNotifier extends Notifier<List<WishlistItem>> {
   @override
   List<WishlistItem> build() {
-    return [
-      WishlistItem(
-        id: '1',
-        name: 'New Laptop',
-        description: 'MacBook Pro M3 for development',
-        estimatedPrice: 2000.0,
-        estimatedDate: DateTime.now().add(const Duration(days: 60)),
-      ),
-      WishlistItem(
-        id: '2',
-        name: 'Summer Vacation',
-        description: 'Trip to Japan',
-        estimatedPrice: 1500.0,
-        estimatedDate: DateTime.now().add(const Duration(days: 120)),
-      ),
-      WishlistItem(
-        id: '3',
-        name: 'Emergency Fund',
-        description: 'Save 3 months of expenses',
-        estimatedPrice: 3000.0,
-        estimatedDate: DateTime.now().add(const Duration(days: 365)),
-      ),
-    ];
+    return [];
   }
 
   void add(WishlistItem item) {
