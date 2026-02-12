@@ -14,11 +14,12 @@ class ActivityItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = _iconForCategory(transaction.category);
     final color = _amountColor(transaction.type);
-    final prefix = transaction.type == TransactionType.income
-        ? '+'
-        : transaction.type == TransactionType.expense
-        ? '-'
-        : '';
+    final prefix = switch (transaction.type) {
+      TransactionType.income => '+',
+      TransactionType.expense => '-',
+      TransactionType.savingDeduct => '-',
+      TransactionType.savings => '',
+    };
     final dateStr = _formatDate(transaction.date);
 
     return InkWell(
@@ -112,6 +113,8 @@ class ActivityItem extends StatelessWidget {
         return AppColors.textPrimary;
       case TransactionType.savings:
         return AppColors.savings;
+      case TransactionType.savingDeduct:
+        return Colors.orange;
     }
   }
 
@@ -123,6 +126,8 @@ class ActivityItem extends StatelessWidget {
         return AppColors.expense.withValues(alpha: 0.1);
       case TransactionType.savings:
         return AppColors.savings.withValues(alpha: 0.1);
+      case TransactionType.savingDeduct:
+        return Colors.orange.withValues(alpha: 0.12);
     }
   }
 }

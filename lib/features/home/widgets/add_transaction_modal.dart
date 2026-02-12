@@ -483,6 +483,12 @@ const List<_TypeOption> _typeOptions = [
     icon: Icons.savings,
     color: AppColors.savings,
   ),
+  _TypeOption(
+    type: TransactionType.savingDeduct,
+    label: 'Deduct from Saving',
+    icon: Icons.money_off,
+    color: Colors.orange,
+  ),
 ];
 
 const List<_CategoryOption> _categories = [

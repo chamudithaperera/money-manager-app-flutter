@@ -121,6 +121,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
               _typeChip('Income', TransactionType.income),
               _typeChip('Expense', TransactionType.expense),
               _typeChip('Savings', TransactionType.savings),
+              _typeChip('Deduct from Saving', TransactionType.savingDeduct),
             ],
           ),
         ],
@@ -172,7 +173,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         Expanded(
           child: _summaryCard(
             'Savings',
-            summary.savings,
+            summary.netSavings,
             currency,
             AppColors.savings,
           ),
@@ -386,6 +387,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                   TransactionType.income => AppColors.primary,
                   TransactionType.expense => AppColors.expense,
                   TransactionType.savings => AppColors.savings,
+                  TransactionType.savingDeduct => Colors.orange,
                 };
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -489,6 +491,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
     double income = 0;
     double expense = 0;
     double savings = 0;
+    double savingDeduct = 0;
 
     for (final tx in transactions) {
       switch (tx.type) {
@@ -501,10 +504,18 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         case TransactionType.savings:
           savings += tx.amount;
           break;
+        case TransactionType.savingDeduct:
+          savingDeduct += tx.amount;
+          break;
       }
     }
 
-    return _ReportSummary(income: income, expense: expense, savings: savings);
+    return _ReportSummary(
+      income: income,
+      expense: expense,
+      savings: savings,
+      savingDeduct: savingDeduct,
+    );
   }
 
   List<_ChartPoint> _buildChartPoints(List<Transaction> transactions) {
@@ -516,7 +527,12 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
       final key = dateFormatter.format(tx.date);
       map.putIfAbsent(
         key,
-        () => const _ReportSummary(income: 0, expense: 0, savings: 0),
+        () => const _ReportSummary(
+          income: 0,
+          expense: 0,
+          savings: 0,
+          savingDeduct: 0,
+        ),
       );
       final current = map[key]!;
       map[key] = switch (tx.type) {
@@ -529,6 +545,9 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         TransactionType.savings => current.copyWith(
           savings: current.savings + tx.amount,
         ),
+        TransactionType.savingDeduct => current.copyWith(
+          savingDeduct: current.savingDeduct + tx.amount,
+        ),
       };
     }
 
@@ -540,7 +559,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         label: labelFormatter.format(date),
         income: stats.income,
         expense: stats.expense,
-        savings: stats.savings,
+        savings: stats.netSavings,
       );
     }).toList();
   }
@@ -607,6 +626,12 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                     ),
                     pw.Text(
                       'Savings: $currency${summary.savings.toStringAsFixed(2)}',
+                    ),
+                    pw.Text(
+                      'Deduct from Saving: $currency${summary.savingDeduct.toStringAsFixed(2)}',
+                    ),
+                    pw.Text(
+                      'Net Savings: $currency${summary.netSavings.toStringAsFixed(2)}',
                     ),
                     pw.Text(
                       'Net Balance: $currency${summary.balance.toStringAsFixed(2)}',
@@ -721,19 +746,29 @@ class _ReportSummary {
     required this.income,
     required this.expense,
     required this.savings,
+    required this.savingDeduct,
   });
 
   final double income;
   final double expense;
   final double savings;
+  final double savingDeduct;
 
-  double get balance => income - expense - savings;
+  double get netSavings => savings - savingDeduct;
 
-  _ReportSummary copyWith({double? income, double? expense, double? savings}) {
+  double get balance => income - expense - netSavings;
+
+  _ReportSummary copyWith({
+    double? income,
+    double? expense,
+    double? savings,
+    double? savingDeduct,
+  }) {
     return _ReportSummary(
       income: income ?? this.income,
       expense: expense ?? this.expense,
       savings: savings ?? this.savings,
+      savingDeduct: savingDeduct ?? this.savingDeduct,
     );
   }
 }
