@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
 import '../../providers/settings_provider.dart';
+import '../../shared/utils/downloads.dart';
 import '../home/models/transaction.dart';
 
 class AnalysisReportPage extends ConsumerStatefulWidget {
@@ -674,14 +674,10 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
       );
 
       final bytes = await pdf.save();
-      final targetDir = await _getDownloadDirectory();
-      final reportDir = Directory(p.join(targetDir.path, 'Money Manager'));
-      if (!await reportDir.exists()) {
-        await reportDir.create(recursive: true);
-      }
+      final targetDir = await getMoneyManagerDownloadDirectory();
       final fileName =
           'money_report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
-      final filePath = p.join(reportDir.path, fileName);
+      final filePath = p.join(targetDir.path, fileName);
       await File(filePath).writeAsBytes(bytes, flush: true);
 
       if (!mounted) return;
@@ -698,14 +694,6 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         setState(() => _isExporting = false);
       }
     }
-  }
-
-  Future<Directory> _getDownloadDirectory() async {
-    final downloads = await getDownloadsDirectory();
-    if (downloads != null) {
-      return downloads;
-    }
-    return getApplicationDocumentsDirectory();
   }
 }
 

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import '../../shared/utils/downloads.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
@@ -526,7 +526,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
 
     try {
-      final directory = await _getDownloadDirectory();
+      final directory = await getMoneyManagerDownloadDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final path = p.join(directory.path, 'transactions_$timestamp.csv');
       await File(path).writeAsBytes(utf8.encode(csv.toString()), flush: true);
@@ -546,14 +546,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   String _escapeCsv(String input) {
     final escaped = input.replaceAll('"', '""');
     return '"$escaped"';
-  }
-
-  Future<Directory> _getDownloadDirectory() async {
-    final downloads = await getDownloadsDirectory();
-    if (downloads != null) {
-      return downloads;
-    }
-    return getApplicationDocumentsDirectory();
   }
 
   void _showAboutDialog() {
