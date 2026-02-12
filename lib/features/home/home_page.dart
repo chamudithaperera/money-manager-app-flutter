@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/transaction_providers.dart';
 import '../../shared/widgets/bottom_nav.dart';
 import '../profile/profile_page.dart';
@@ -133,6 +137,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildHeader() {
+    final settingsAsync = ref.watch(settingsProvider);
+    final settings = settingsAsync.asData?.value;
+
+    final displayName = settings?.displayName ?? AppConstants.userDisplayName;
+    final initials = settings?.initials ?? AppConstants.userInitials;
+    final imagePath = settings?.profileImagePath;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -141,10 +152,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           children: [
             Text('My Money Manager', style: AppTextStyles.appTitle),
             const SizedBox(height: 4),
-            Text(
-              'Welcome back, ${AppConstants.userDisplayName}',
-              style: AppTextStyles.welcome,
-            ),
+            Text('Welcome back, $displayName', style: AppTextStyles.welcome),
           ],
         ),
         Container(
@@ -165,13 +173,28 @@ class _HomePageState extends ConsumerState<HomePage> {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Text(
-              AppConstants.userInitials,
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: imagePath != null
+                ? Image.file(
+                    File(imagePath),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (context, error, stackTrace) => Text(
+                      initials,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                : Text(
+                    initials,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
       ],
@@ -189,7 +212,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             color: Colors.black.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.add, size: 18, color: Colors.black),
+          child: const Icon(Symbols.add, size: 18, color: Colors.black),
         ),
         label: const Text('Add Transaction'),
         style: ElevatedButton.styleFrom(
@@ -284,7 +307,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.edit, color: AppColors.primary),
+                leading: const Icon(Symbols.edit, color: AppColors.primary),
                 title: const Text('Edit'),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -292,7 +315,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete, color: AppColors.expense),
+                leading: const Icon(Symbols.delete, color: AppColors.expense),
                 title: const Text('Delete'),
                 onTap: () {
                   Navigator.of(context).pop();

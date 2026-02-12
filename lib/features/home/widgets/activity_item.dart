@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
@@ -91,17 +93,17 @@ class ActivityItem extends StatelessWidget {
   IconData _iconForCategory(String category) {
     switch (category.toLowerCase()) {
       case 'salary':
-        return Icons.work;
+        return Symbols.work;
       case 'freelance':
-        return Icons.laptop;
+        return Symbols.laptop;
       case 'food':
-        return Icons.shopping_bag;
+        return Symbols.shopping_bag;
       case 'housing':
-        return Icons.home;
+        return Symbols.home;
       case 'investments':
-        return Icons.trending_up;
+        return Symbols.trending_up;
       default:
-        return Icons.attach_money;
+        return Symbols.attach_money;
     }
   }
 

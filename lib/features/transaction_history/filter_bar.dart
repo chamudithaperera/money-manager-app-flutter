@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
+
 import '../../core/theme/theme.dart';
 import '../home/models/transaction.dart';
 
@@ -35,13 +37,13 @@ class FilterBar extends StatelessWidget {
           children: [
             TextButton.icon(
               onPressed: () => onDateChange(activeDate),
-              icon: const Icon(Icons.calendar_month, size: 16),
+              icon: const Icon(Symbols.calendar_month, size: 16),
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(activeDate),
                   const SizedBox(width: 6),
-                  const Icon(Icons.expand_more, size: 16),
+                  const Icon(Symbols.expand_more, size: 16),
                 ],
               ),
               style: TextButton.styleFrom(
@@ -61,7 +63,7 @@ class FilterBar extends StatelessWidget {
             ),
             IconButton(
               onPressed: () {},
-              icon: const Icon(Icons.filter_alt_outlined),
+              icon: Icon(Symbols.filter_alt),
               color: AppColors.textTertiary,
             ),
           ],

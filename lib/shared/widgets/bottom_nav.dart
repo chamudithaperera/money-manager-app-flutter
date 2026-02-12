@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
+
 import '../../core/theme/theme.dart';
 
 enum BottomTab { home, history, wishlist, profile }
@@ -35,25 +37,25 @@ class BottomNav extends StatelessWidget {
             children: [
               _NavItem(
                 label: 'Home',
-                icon: Icons.home_outlined,
+                icon: Symbols.home,
                 isActive: activeTab == BottomTab.home,
                 onTap: () => onTabChange(BottomTab.home),
               ),
               _NavItem(
                 label: 'History',
-                icon: Icons.history,
+                icon: Symbols.history,
                 isActive: activeTab == BottomTab.history,
                 onTap: () => onTabChange(BottomTab.history),
               ),
               _NavItem(
                 label: 'Wishlist',
-                icon: Icons.star_outline,
+                icon: Symbols.star,
                 isActive: activeTab == BottomTab.wishlist,
                 onTap: () => onTabChange(BottomTab.wishlist),
               ),
               _NavItem(
                 label: 'Profile',
-                icon: Icons.person_outline,
+                icon: Symbols.person,
                 isActive: activeTab == BottomTab.profile,
                 onTap: () => onTabChange(BottomTab.profile),
               ),

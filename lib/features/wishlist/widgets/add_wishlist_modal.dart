@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -93,7 +95,7 @@ class _AddWishlistModalState extends ConsumerState<AddWishlistModal> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Symbols.close),
                       color: AppColors.textSecondary,
                     ),
                   ],
@@ -103,7 +105,7 @@ class _AddWishlistModalState extends ConsumerState<AddWishlistModal> {
                 const SizedBox(height: 8),
                 _textField(
                   hint: 'e.g., New Laptop',
-                  icon: Icons.label_outline,
+                  icon: Symbols.label,
                   controller: _nameController,
                   onChanged: (value) => setState(() => _name = value),
                 ),
@@ -112,7 +114,7 @@ class _AddWishlistModalState extends ConsumerState<AddWishlistModal> {
                 const SizedBox(height: 8),
                 _textField(
                   hint: 'Details about the item',
-                  icon: Icons.description_outlined,
+                  icon: Symbols.description,
                   controller: _descriptionController,
                   onChanged: (value) => setState(() => _description = value),
                 ),
@@ -121,7 +123,7 @@ class _AddWishlistModalState extends ConsumerState<AddWishlistModal> {
                 const SizedBox(height: 8),
                 _textField(
                   hint: '0.00',
-                  icon: Icons.attach_money,
+                  icon: Symbols.attach_money,
                   keyboardType: TextInputType.number,
                   prefixText: '$currency ',
                   controller: _priceController,
@@ -200,7 +202,7 @@ class _AddWishlistModalState extends ConsumerState<AddWishlistModal> {
           decoration: InputDecoration(
             hintText: formatted,
             prefixIcon: const Icon(
-              Icons.calendar_month,
+              Symbols.calendar_month,
               size: 18,
               color: AppColors.textTertiary,
             ),

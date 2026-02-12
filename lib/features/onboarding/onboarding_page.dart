@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/theme.dart';
@@ -65,8 +67,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Spacer(),
-                const Icon(
-                  Icons.person_pin_circle_outlined,
+                Icon(
+                  Symbols.person_pin_circle,
                   size: 64,
                   color: AppColors.primary,
                 ),

@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
+
 import 'dart:io';
 
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -66,7 +68,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.picture_as_pdf),
+                  : const Icon(Symbols.picture_as_pdf),
               label: Text(
                 _isExporting ? 'Generating PDF...' : 'Download PDF Report',
               ),

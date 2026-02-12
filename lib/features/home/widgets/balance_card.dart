@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 
@@ -88,7 +90,7 @@ class _BalanceCardState extends State<BalanceCard> {
                   IconButton(
                     onPressed: () => setState(() => _isVisible = !_isVisible),
                     icon: Icon(
-                      _isVisible ? Icons.visibility : Icons.visibility_off,
+                      _isVisible ? Symbols.visibility : Symbols.visibility_off,
                       size: 18,
                       color: AppColors.textTertiary,
                     ),

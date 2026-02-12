@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -115,7 +117,7 @@ class WishlistPage extends ConsumerWidget {
             color: Colors.black.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.add, size: 18, color: Colors.black),
+          child: const Icon(Symbols.add, size: 18, color: Colors.black),
         ),
         label: const Text('Add Wishlist Item'),
         style: ElevatedButton.styleFrom(
@@ -185,7 +187,7 @@ class WishlistPage extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.edit, color: AppColors.primary),
+                leading: const Icon(Symbols.edit, color: AppColors.primary),
                 title: const Text('Edit'),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -193,7 +195,7 @@ class WishlistPage extends ConsumerWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete, color: AppColors.expense),
+                leading: const Icon(Symbols.delete, color: AppColors.expense),
                 title: const Text('Delete'),
                 onTap: () {
                   Navigator.of(context).pop();

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
@@ -47,28 +49,28 @@ class StatCard extends StatelessWidget {
     switch (type) {
       case TransactionType.income:
         return const _StatConfig(
-          icon: Icons.trending_up,
+          icon: Symbols.trending_up,
           label: 'Income',
           color: AppColors.primary,
           bgColor: Color(0x1A28C76F),
         );
       case TransactionType.expense:
         return const _StatConfig(
-          icon: Icons.trending_down,
+          icon: Symbols.trending_down,
           label: 'Expenses',
           color: AppColors.expense,
           bgColor: Color(0x1AEA5455),
         );
       case TransactionType.savings:
         return const _StatConfig(
-          icon: Icons.savings,
+          icon: Symbols.savings,
           label: 'Savings',
           color: AppColors.savings,
           bgColor: Color(0x1A8B5CF6),
         );
       case TransactionType.savingDeduct:
         return const _StatConfig(
-          icon: Icons.money_off,
+          icon: Symbols.money_off,
           label: 'Saving Deduct',
           color: Colors.orange,
           bgColor: Color(0x1AFFA726),

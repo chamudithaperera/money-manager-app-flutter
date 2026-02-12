@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
@@ -90,7 +92,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Symbols.close),
                       color: AppColors.textSecondary,
                     ),
                   ],
@@ -126,7 +128,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                 const SizedBox(height: 8),
                 _textField(
                   hint: 'e.g., Monthly salary, Grocery shopping...',
-                  icon: Icons.description_outlined,
+                  icon: Symbols.description,
                   controller: _descriptionController,
                   onChanged: (value) => setState(() => _description = value),
                 ),
@@ -135,7 +137,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                 const SizedBox(height: 8),
                 _textField(
                   hint: '0.00',
-                  icon: Icons.attach_money,
+                  icon: Symbols.attach_money,
                   keyboardType: TextInputType.number,
                   prefixText: '${AppConstants.currencySymbol} ',
                   controller: _amountController,
@@ -214,7 +216,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
           decoration: InputDecoration(
             hintText: formatted,
             prefixIcon: const Icon(
-              Icons.calendar_month,
+              Symbols.calendar_month,
               size: 18,
               color: AppColors.textTertiary,
             ),
@@ -256,7 +258,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               ],
             ),
             Icon(
-              _showCategoryPicker ? Icons.expand_less : Icons.expand_more,
+              _showCategoryPicker ? Symbols.expand_less : Symbols.expand_more,
               color: AppColors.textTertiary,
             ),
           ],
@@ -468,48 +470,52 @@ const List<_TypeOption> _typeOptions = [
   _TypeOption(
     type: TransactionType.income,
     label: 'Income',
-    icon: Icons.trending_up,
+    icon: Symbols.trending_up,
     color: AppColors.primary,
   ),
   _TypeOption(
     type: TransactionType.expense,
     label: 'Expense',
-    icon: Icons.trending_down,
+    icon: Symbols.trending_down,
     color: AppColors.expense,
   ),
   _TypeOption(
     type: TransactionType.savings,
     label: 'Savings',
-    icon: Icons.savings,
+    icon: Symbols.savings,
     color: AppColors.savings,
   ),
   _TypeOption(
     type: TransactionType.savingDeduct,
     label: 'Deduct',
-    icon: Icons.money_off,
+    icon: Symbols.money_off,
     color: Colors.orange,
   ),
 ];
 
 const List<_CategoryOption> _categories = [
-  _CategoryOption(id: 'salary', label: 'Salary', icon: Icons.work),
+  _CategoryOption(id: 'salary', label: 'Salary', icon: Symbols.work),
   _CategoryOption(
     id: 'freelance',
     label: 'Freelance',
-    icon: Icons.phone_android,
+    icon: Symbols.phone_android,
   ),
-  _CategoryOption(id: 'housing', label: 'Housing', icon: Icons.home),
-  _CategoryOption(id: 'food', label: 'Food', icon: Icons.restaurant),
-  _CategoryOption(id: 'shopping', label: 'Shopping', icon: Icons.shopping_cart),
+  _CategoryOption(id: 'housing', label: 'Housing', icon: Symbols.home),
+  _CategoryOption(id: 'food', label: 'Food', icon: Symbols.restaurant),
+  _CategoryOption(
+    id: 'shopping',
+    label: 'Shopping',
+    icon: Symbols.shopping_cart,
+  ),
   _CategoryOption(
     id: 'transport',
     label: 'Transport',
-    icon: Icons.directions_car,
+    icon: Symbols.directions_car,
   ),
-  _CategoryOption(id: 'health', label: 'Health', icon: Icons.favorite),
-  _CategoryOption(id: 'education', label: 'Education', icon: Icons.school),
-  _CategoryOption(id: 'travel', label: 'Travel', icon: Icons.flight),
-  _CategoryOption(id: 'gifts', label: 'Gifts', icon: Icons.card_giftcard),
-  _CategoryOption(id: 'utilities', label: 'Utilities', icon: Icons.bolt),
-  _CategoryOption(id: 'other', label: 'Other', icon: Icons.sell),
+  _CategoryOption(id: 'health', label: 'Health', icon: Symbols.favorite),
+  _CategoryOption(id: 'education', label: 'Education', icon: Symbols.school),
+  _CategoryOption(id: 'travel', label: 'Travel', icon: Symbols.flight),
+  _CategoryOption(id: 'gifts', label: 'Gifts', icon: Symbols.card_giftcard),
+  _CategoryOption(id: 'utilities', label: 'Utilities', icon: Symbols.bolt),
+  _CategoryOption(id: 'other', label: 'Other', icon: Symbols.sell),
 ];

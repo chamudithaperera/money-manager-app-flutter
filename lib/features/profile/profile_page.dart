@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -44,21 +46,21 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           Text('Profile Options', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 12),
           _buildSettingsOption(
-            icon: Icons.person_outline,
+            icon: Symbols.person,
             title: 'Edit Profile',
             subtitle: 'Name and profile photo',
             onTap: _showEditProfileDialog,
           ),
           const SizedBox(height: 10),
           _buildSettingsOption(
-            icon: Icons.currency_exchange,
+            icon: Symbols.currency_exchange,
             title: 'Change Currency',
             subtitle: 'Update how values are shown',
             onTap: _showCurrencyPicker,
           ),
           const SizedBox(height: 10),
           _buildSettingsOption(
-            icon: Icons.analytics_outlined,
+            icon: Symbols.analytics,
             title: 'Analysis & Reports',
             subtitle: 'Filter details and download PDF report',
             onTap: () {
@@ -72,14 +74,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
           const SizedBox(height: 10),
           _buildSettingsOption(
-            icon: Icons.download_outlined,
+            icon: Symbols.download,
             title: 'Export Data (CSV)',
             subtitle: 'Download all transaction details',
             onTap: _exportTransactionsCsv,
           ),
           const SizedBox(height: 10),
           _buildSettingsOption(
-            icon: Icons.info_outline,
+            icon: Symbols.info,
             title: 'About App',
             subtitle: 'Version and developer details',
             onTap: _showAboutDialog,
@@ -404,7 +406,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.camera_alt,
+                            Symbols.camera_alt,
                             size: 14,
                             color: Colors.black,
                           ),
@@ -616,7 +618,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, size: 20, color: AppColors.textTertiary),
+            Icon(
+              Symbols.chevron_right,
+              size: 20,
+              color: AppColors.textTertiary,
+            ),
           ],
         ),
       ),
