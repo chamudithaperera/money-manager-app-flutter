@@ -7,6 +7,7 @@ import '../../providers/transaction_providers.dart';
 import '../../shared/widgets/bottom_nav.dart';
 import '../profile/profile_page.dart';
 import '../transaction_history/history_page.dart';
+import '../wishlist/wishlist_page.dart';
 import 'models/transaction.dart';
 import 'widgets/activity_item.dart';
 import 'widgets/add_transaction_modal.dart';
@@ -45,6 +46,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   }
                   if (_activeTab == BottomTab.history) {
                     return _buildHistory(items);
+                  }
+                  if (_activeTab == BottomTab.wishlist) {
+                    return _buildWishlist();
                   }
                   return _buildProfile(items);
                 },
@@ -222,6 +226,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildProfile(List<Transaction> items) {
     return ProfilePage(transactions: items);
+  }
+
+  Widget _buildWishlist() {
+    return const WishlistPage();
   }
 
   void _showAddSheet({Transaction? initial}) {
