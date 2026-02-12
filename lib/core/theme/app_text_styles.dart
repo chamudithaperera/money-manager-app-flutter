@@ -24,6 +24,14 @@ abstract final class AppTextStyles {
     color: AppColors.textSecondary,
   );
 
+  // Primary body text
+  static const TextStyle body = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+  );
+
   // Section labels (e.g. "Total Balance", "Recent Activity")
   static const TextStyle sectionLabel = TextStyle(
     fontFamily: _fontFamily,
@@ -164,13 +172,5 @@ abstract final class AppTextStyles {
     fontFamily: _fontFamily,
     fontSize: 14,
     fontWeight: FontWeight.w500,
-  );
-
-  // General body text
-  static const TextStyle body = TextStyle(
-    fontFamily: _fontFamily,
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-    color: AppColors.textPrimary,
   );
 }

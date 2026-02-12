@@ -1,22 +1,17 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
-import '../../providers/settings_provider.dart';
 import '../../providers/transaction_providers.dart';
 import '../../shared/widgets/bottom_nav.dart';
+import '../profile/profile_page.dart';
 import '../transaction_history/history_page.dart';
-import '../wishlist/wishlist_page.dart';
 import 'models/transaction.dart';
 import 'widgets/activity_item.dart';
 import 'widgets/add_transaction_modal.dart';
 import 'widgets/balance_card.dart';
 import 'widgets/stat_card.dart';
-
-import '../profile/profile_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -28,7 +23,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   BottomTab _activeTab = BottomTab.home;
   TransactionType? _filterType;
-  String _dateFilter = 'All';
+  String _dateFilter = 'This Month';
 
   @override
   Widget build(BuildContext context) {
@@ -45,16 +40,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               bottom: false,
               child: transactionsAsync.when(
                 data: (items) {
-                  switch (_activeTab) {
-                    case BottomTab.home:
-                      return _buildHome(items, stats);
-                    case BottomTab.activities:
-                      return _buildActivities(items);
-                    case BottomTab.wishlist:
-                      return const WishlistPage();
-                    case BottomTab.profile:
-                      return _buildProfile(items);
+                  if (_activeTab == BottomTab.home) {
+                    return _buildHome(items, stats);
                   }
+                  if (_activeTab == BottomTab.history) {
+                    return _buildHistory(items);
+                  }
+                  return _buildProfile(items);
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
@@ -86,10 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         children: [
           _buildHeader(),
           const SizedBox(height: 24),
-          BalanceCard(
-            balance: stats.balance,
-            balanceChange: stats.balanceChange,
-          ),
+          BalanceCard(balance: stats.balance),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -135,13 +124,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildHeader() {
-    final settingsAsync = ref.watch(settingsProvider);
-    final settings = settingsAsync.asData?.value; // Use asData?.value safely
-
-    final displayName = settings?.displayName ?? AppConstants.userDisplayName;
-    final initials = settings?.initials ?? AppConstants.userInitials;
-    final imagePath = settings?.profileImagePath;
-
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -150,7 +132,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           children: [
             Text('My Money Manager', style: AppTextStyles.appTitle),
             const SizedBox(height: 4),
-            Text('Welcome back, $displayName', style: AppTextStyles.welcome),
+            Text(
+              'Welcome back, ${AppConstants.userDisplayName}',
+              style: AppTextStyles.welcome,
+            ),
           ],
         ),
         Container(
@@ -171,28 +156,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            clipBehavior: Clip.antiAlias,
-            child: imagePath != null
-                ? Image.file(
-                    File(imagePath),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (_, __, ___) => Text(
-                      initials,
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  )
-                : Text(
-                    initials,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+            child: Text(
+              AppConstants.userInitials,
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
       ],
@@ -232,18 +202,14 @@ class _HomePageState extends ConsumerState<HomePage> {
       children: [
         Text('Recent Activity', style: AppTextStyles.sectionHeader),
         TextButton(
-          onPressed: () {
-            setState(() {
-              _activeTab = BottomTab.activities;
-            });
-          },
+          onPressed: () {},
           child: Text('See All', style: AppTextStyles.link),
         ),
       ],
     );
   }
 
-  Widget _buildActivities(List<Transaction> items) {
+  Widget _buildHistory(List<Transaction> items) {
     return HistoryPage(
       transactions: items,
       activeType: _filterType,

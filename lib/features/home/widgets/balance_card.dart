@@ -1,39 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
-import '../../../providers/settings_provider.dart';
 
-class BalanceCard extends ConsumerStatefulWidget {
-  const BalanceCard({
-    super.key,
-    required this.balance,
-    required this.balanceChange,
-  });
+class BalanceCard extends StatefulWidget {
+  const BalanceCard({super.key, required this.balance});
 
   final double balance;
-  final double balanceChange;
 
   @override
-  ConsumerState<BalanceCard> createState() => _BalanceCardState();
+  State<BalanceCard> createState() => _BalanceCardState();
 }
 
-class _BalanceCardState extends ConsumerState<BalanceCard> {
+class _BalanceCardState extends State<BalanceCard> {
   bool _isVisible = true;
 
   @override
   Widget build(BuildContext context) {
-    final isPositive = widget.balanceChange >= 0;
-    final changeText =
-        '${isPositive ? '+' : ''}${widget.balanceChange.toStringAsFixed(1)}%';
-
-    // Calculate bar width factor (capped at 100% change for visual purposes)
-    final progressFactor = (widget.balanceChange.abs() / 100).clamp(0.05, 1.0);
-    final currency =
-        ref.watch(settingsProvider).asData?.value.currencySymbol ??
-        AppConstants.currencySymbol;
-
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -98,7 +81,7 @@ class _BalanceCardState extends ConsumerState<BalanceCard> {
               const SizedBox(height: 6),
               Text(
                 _isVisible
-                    ? '$currency ${widget.balance.toStringAsFixed(2)}'
+                    ? '${AppConstants.currencySymbol} ${widget.balance.toStringAsFixed(2)}'
                     : '••••••••',
                 style: AppTextStyles.balanceLarge,
               ),
@@ -113,18 +96,14 @@ class _BalanceCardState extends ConsumerState<BalanceCard> {
                         color: AppColors.progressTrack,
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: FractionallySizedBox(
-                            widthFactor: progressFactor,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: isPositive
-                                      ? [
-                                          AppColors.primary,
-                                          AppColors.primaryLight,
-                                        ]
-                                      : [AppColors.expense, Colors.redAccent],
-                                ),
+                          child: Container(
+                            width: MediaQuery.sizeOf(context).width * 0.45,
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.primary,
+                                  AppColors.primaryLight,
+                                ],
                               ),
                             ),
                           ),
@@ -134,9 +113,9 @@ class _BalanceCardState extends ConsumerState<BalanceCard> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '$changeText vs last mo',
+                    '+12% vs last mo',
                     style: AppTextStyles.caption.copyWith(
-                      color: isPositive ? AppColors.primary : AppColors.expense,
+                      color: AppColors.primary,
                     ),
                   ),
                 ],

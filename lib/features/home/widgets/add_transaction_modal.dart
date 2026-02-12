@@ -4,22 +4,17 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 import '../models/transaction.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../providers/settings_provider.dart';
-
-class AddTransactionModal extends ConsumerStatefulWidget {
+class AddTransactionModal extends StatefulWidget {
   const AddTransactionModal({super.key, required this.onSubmit, this.initial});
 
   final ValueChanged<TransactionFormData> onSubmit;
   final Transaction? initial;
 
   @override
-  ConsumerState<AddTransactionModal> createState() =>
-      _AddTransactionModalState();
+  State<AddTransactionModal> createState() => _AddTransactionModalState();
 }
 
-class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
-  // ... existing state variables ...
+class _AddTransactionModalState extends State<AddTransactionModal> {
   TransactionType _type = TransactionType.expense;
   String _description = '';
   String _amount = '';
@@ -44,20 +39,21 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
     _amountController = TextEditingController(text: _amount);
   }
 
-  // ... dispose ...
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final currency =
-        ref.watch(settingsProvider).asData?.value.currencySymbol ??
-        AppConstants.currencySymbol;
     final selectedCategory = _categories.firstWhere(
       (c) => c.id == _category,
       orElse: () => _categories.last,
     );
     final isEditing = widget.initial != null;
 
-    // ... rest of build ...
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Container(
@@ -74,7 +70,6 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ... header ...
                 Center(
                   child: Container(
                     width: 40,
@@ -142,7 +137,7 @@ class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
                   hint: '0.00',
                   icon: Icons.attach_money,
                   keyboardType: TextInputType.number,
-                  prefixText: '$currency ',
+                  prefixText: '${AppConstants.currencySymbol} ',
                   controller: _amountController,
                   onChanged: (value) => setState(() => _amount = value),
                 ),
@@ -487,12 +482,6 @@ const List<_TypeOption> _typeOptions = [
     label: 'Savings',
     icon: Icons.savings,
     color: AppColors.savings,
-  ),
-  _TypeOption(
-    type: TransactionType.savingDeduct,
-    label: 'Deduct',
-    icon: Icons.remove_circle_outline,
-    color: AppColors.expense,
   ),
 ];
 

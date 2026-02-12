@@ -1,24 +1,18 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
-import '../../../providers/settings_provider.dart';
 import '../models/transaction.dart';
 
-class StatCard extends ConsumerWidget {
+class StatCard extends StatelessWidget {
   const StatCard({super.key, required this.type, required this.amount});
 
   final TransactionType type;
   final double amount;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final config = _configFor(type);
-    final currency =
-        ref.watch(settingsProvider).asData?.value.currencySymbol ??
-        AppConstants.currencySymbol;
 
     return Container(
       decoration: BoxDecoration(
@@ -41,7 +35,7 @@ class StatCard extends ConsumerWidget {
           Text(config.label, style: AppTextStyles.caption),
           const SizedBox(height: 4),
           Text(
-            '$currency ${amount.toStringAsFixed(0)}',
+            '${AppConstants.currencySymbol} ${amount.toStringAsFixed(0)}',
             style: AppTextStyles.summaryAmount.copyWith(fontSize: 14),
           ),
         ],
@@ -71,13 +65,6 @@ class StatCard extends ConsumerWidget {
           label: 'Savings',
           color: AppColors.savings,
           bgColor: Color(0x1A8B5CF6),
-        );
-      case TransactionType.savingDeduct:
-        return const _StatConfig(
-          icon: Icons.remove_circle,
-          label: 'Deductions',
-          color: AppColors.expense,
-          bgColor: Color(0x1AEA5455),
         );
     }
   }

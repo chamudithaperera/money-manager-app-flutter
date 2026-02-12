@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum TransactionType { income, expense, savings, savingDeduct }
+enum TransactionType { income, expense, savings }
 
 @immutable
 class Transaction {

@@ -25,11 +25,14 @@ class SettingsState {
     String? displayName,
     String? currencySymbol,
     String? profileImagePath,
+    bool clearProfileImage = false,
   }) {
     return SettingsState(
       displayName: displayName ?? this.displayName,
       currencySymbol: currencySymbol ?? this.currencySymbol,
-      profileImagePath: profileImagePath ?? this.profileImagePath,
+      profileImagePath: clearProfileImage
+          ? null
+          : profileImagePath ?? this.profileImagePath,
     );
   }
 }
@@ -69,6 +72,12 @@ class SettingsNotifier extends AsyncNotifier<SettingsState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyProfileImage, path);
     state = AsyncValue.data(state.value!.copyWith(profileImagePath: path));
+  }
+
+  Future<void> clearProfileImage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyProfileImage);
+    state = AsyncValue.data(state.value!.copyWith(clearProfileImage: true));
   }
 }
 

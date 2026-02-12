@@ -18,91 +18,31 @@ final transactionsProvider =
       TransactionNotifier.new,
     );
 
-// Using keepAlive to cache the calculations and avoid recomputing on every rebuild
 final statsProvider = Provider<HomeStats>((ref) {
-  // Cache this provider to avoid unnecessary recalculations
-  ref.keepAlive();
-
   final transactions = ref.watch(transactionsProvider).value ?? const [];
-
-  // Early return for empty transactions
-  if (transactions.isEmpty) {
-    return const HomeStats(
-      income: 0,
-      expenses: 0,
-      savings: 0,
-      balance: 0,
-      savingDeducts: 0,
-      balanceChange: 0,
-    );
-  }
-
   double income = 0;
   double expenses = 0;
   double savings = 0;
-  double savingDeducts = 0;
-  double lastMonthIncome = 0;
-  double lastMonthExpenses = 0;
-  double lastMonthSavings = 0;
 
-  final now = DateTime.now();
-  final firstDayOfThisMonth = DateTime(now.year, now.month, 1);
-
-  // Single pass through transactions for better performance
   for (final tx in transactions) {
-    final amount = tx.amount;
-
-    // Current totals
     switch (tx.type) {
       case TransactionType.income:
-        income += amount;
+        income += tx.amount;
         break;
       case TransactionType.expense:
-        expenses += amount;
+        expenses += tx.amount;
         break;
       case TransactionType.savings:
-        savings += amount;
+        savings += tx.amount;
         break;
-      case TransactionType.savingDeduct:
-        savingDeducts += amount;
-        break;
-    }
-
-    // Previous month totals (optimization: single date comparison)
-    if (tx.date.isBefore(firstDayOfThisMonth)) {
-      switch (tx.type) {
-        case TransactionType.income:
-          lastMonthIncome += amount;
-          break;
-        case TransactionType.expense:
-          lastMonthExpenses += amount;
-          break;
-        case TransactionType.savings:
-          lastMonthSavings += amount;
-          break;
-        default:
-          break;
-      }
     }
   }
-
-  final netSavings = savings - savingDeducts;
-  final currentBalance = income - expenses - savings;
-  final lastMonthBalance =
-      lastMonthIncome - lastMonthExpenses - lastMonthSavings;
-
-  // Optimized percentage calculation
-  final percentageChange = lastMonthBalance == 0
-      ? (currentBalance > 0 ? 100.0 : 0.0)
-      : ((currentBalance - lastMonthBalance) / lastMonthBalance.abs()) * 100;
 
   return HomeStats(
     income: income,
     expenses: expenses,
-    savings: netSavings,
-    balance: currentBalance,
-    savingDeducts: savingDeducts,
-    balanceChange: percentageChange,
+    savings: savings,
+    balance: income - expenses - savings,
   );
 });
 
@@ -113,7 +53,8 @@ class TransactionNotifier extends AsyncNotifier<List<Transaction>> {
   @override
   Future<List<Transaction>> build() async {
     try {
-      return await _repository.getAll();
+      final items = await _repository.getAll();
+      return _sortByDate(items);
     } catch (e, st) {
       debugPrint('TransactionNotifier.build failed: $e');
       debugPrintStack(stackTrace: st);
@@ -156,14 +97,10 @@ class HomeStats {
     required this.income,
     required this.expenses,
     required this.savings,
-    required this.savingDeducts,
-    required this.balanceChange,
   });
 
   final double balance;
   final double income;
   final double expenses;
   final double savings;
-  final double savingDeducts;
-  final double balanceChange;
 }

@@ -10,14 +10,12 @@ class FilterBar extends StatelessWidget {
     required this.onTypeChange,
     required this.activeDate,
     required this.onDateChange,
-    required this.availableMonths,
   });
 
   final TransactionType? activeType;
   final ValueChanged<TransactionType?> onTypeChange;
   final String activeDate;
   final ValueChanged<String> onDateChange;
-  final List<String> availableMonths;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +33,7 @@ class FilterBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             TextButton.icon(
-              onPressed: () => _showMonthPicker(context),
+              onPressed: () => onDateChange(activeDate),
               icon: const Icon(Icons.calendar_month, size: 16),
               label: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -116,66 +114,6 @@ class FilterBar extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  void _showMonthPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surfaceVariant,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text('Select Month', style: AppTextStyles.sectionHeader),
-              const SizedBox(height: 16),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildMonthOption(context, 'All'),
-                      for (final month in availableMonths)
-                        _buildMonthOption(context, month),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMonthOption(BuildContext context, String value) {
-    final isActive = value == activeDate;
-    return ListTile(
-      title: Text(
-        value,
-        style: isActive
-            ? AppTextStyles.body.copyWith(color: AppColors.primary)
-            : AppTextStyles.body,
-        textAlign: TextAlign.center,
-      ),
-      onTap: () {
-        onDateChange(value);
-        Navigator.pop(context);
-      },
     );
   }
 }

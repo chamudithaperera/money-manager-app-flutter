@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
-import '../../../providers/settings_provider.dart';
 import '../models/transaction.dart';
 
-class ActivityItem extends ConsumerWidget {
+class ActivityItem extends StatelessWidget {
   const ActivityItem({super.key, required this.transaction, this.onLongPress});
 
   final Transaction transaction;
   final VoidCallback? onLongPress;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final icon = _iconForCategory(transaction.category);
     final color = _amountColor(transaction.type);
     final prefix = transaction.type == TransactionType.income
@@ -22,9 +20,6 @@ class ActivityItem extends ConsumerWidget {
         ? '-'
         : '';
     final dateStr = _formatDate(transaction.date);
-    final currency =
-        ref.watch(settingsProvider).asData?.value.currencySymbol ??
-        AppConstants.currencySymbol;
 
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.large),
@@ -64,7 +59,7 @@ class ActivityItem extends ConsumerWidget {
               ],
             ),
             Text(
-              '$prefix$currency ${transaction.amount.toStringAsFixed(2)}',
+              '$prefix${AppConstants.currencySymbol} ${transaction.amount.toStringAsFixed(2)}',
               style: AppTextStyles.transactionAmount.copyWith(color: color),
             ),
           ],
@@ -117,8 +112,6 @@ class ActivityItem extends ConsumerWidget {
         return AppColors.textPrimary;
       case TransactionType.savings:
         return AppColors.savings;
-      case TransactionType.savingDeduct:
-        return AppColors.expense;
     }
   }
 
@@ -130,8 +123,6 @@ class ActivityItem extends ConsumerWidget {
         return AppColors.expense.withValues(alpha: 0.1);
       case TransactionType.savings:
         return AppColors.savings.withValues(alpha: 0.1);
-      case TransactionType.savingDeduct:
-        return AppColors.expense.withValues(alpha: 0.1);
     }
   }
 }

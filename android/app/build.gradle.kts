@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.mymoneymanager.my_money_manager"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "29.0.14206865"
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

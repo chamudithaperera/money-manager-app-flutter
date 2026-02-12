@@ -1,16 +1,18 @@
+import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math; // Import math for min/max
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
 import '../../providers/settings_provider.dart';
 import '../home/models/transaction.dart';
+import 'analysis_report_page.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key, required this.transactions});
@@ -22,66 +24,67 @@ class ProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
-  DateTime? _selectedMonth; // Null represents "All"
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedMonth = null;
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Collect available months
-    final availableMonths = _getAvailableMonths();
-
-    // Ensure selection is valid
-    if (_selectedMonth != null &&
-        !availableMonths.contains(_selectedMonth) &&
-        !availableMonths.any(
-          (d) => d != null && isSameMonth(d, _selectedMonth!),
-        )) {
-      // If selected month (not null) is invalid, fallback
-      // Here we can fallback to the first available month or null (All)
-      // Let's fallback to current month if in list, otherwise null
-      final now = DateTime(DateTime.now().year, DateTime.now().month);
-      if (availableMonths.any((d) => d != null && isSameMonth(d, now))) {
-        _selectedMonth = now;
-      } else {
-        _selectedMonth = null;
-      }
-    }
-
-    final chartData = _getChartData(_selectedMonth);
-    final currency =
-        ref.watch(settingsProvider).asData?.value.currencySymbol ??
-        AppConstants.currencySymbol;
+    final settings = ref.watch(settingsProvider).asData?.value;
+    final currency = settings?.currencySymbol ?? AppConstants.currencySymbol;
+    final stats = _buildStats(widget.transactions);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildProfileHeader(),
-          const SizedBox(height: 32),
-          _buildMonthSelector(availableMonths),
-          const SizedBox(height: 16),
-          _buildChartSection(chartData, currency),
-          const SizedBox(height: 32),
-          Text('Settings', style: AppTextStyles.sectionHeader),
-          const SizedBox(height: 16),
+          _buildProfileDetailsCard(settings, currency, stats),
+          const SizedBox(height: 24),
+          Text('Quick Overview', style: AppTextStyles.sectionHeader),
+          const SizedBox(height: 12),
+          _buildSummaryTiles(stats, currency),
+          const SizedBox(height: 24),
+          Text('Profile Options', style: AppTextStyles.sectionHeader),
+          const SizedBox(height: 12),
           _buildSettingsOption(
-            icon: Icons.edit,
+            icon: Icons.person_outline,
             title: 'Edit Profile',
+            subtitle: 'Name and profile photo',
             onTap: _showEditProfileDialog,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildSettingsOption(
             icon: Icons.currency_exchange,
             title: 'Change Currency',
+            subtitle: 'Update how values are shown',
             onTap: _showCurrencyPicker,
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 10),
+          _buildSettingsOption(
+            icon: Icons.analytics_outlined,
+            title: 'Analysis & Reports',
+            subtitle: 'Filter details and download PDF report',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      AnalysisReportPage(transactions: widget.transactions),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          _buildSettingsOption(
+            icon: Icons.download_outlined,
+            title: 'Export Data (CSV)',
+            subtitle: 'Download all transaction details',
+            onTap: _exportTransactionsCsv,
+          ),
+          const SizedBox(height: 10),
+          _buildSettingsOption(
+            icon: Icons.info_outline,
+            title: 'About App',
+            subtitle: 'Version and developer details',
+            onTap: _showAboutDialog,
+          ),
+          const SizedBox(height: 24),
           Center(
             child: Text(
               'Product of ChamXdev by Chamuditha Perera',
@@ -97,378 +100,226 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  bool isSameMonth(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month;
+  _ProfileStats _buildStats(List<Transaction> transactions) {
+    double income = 0;
+    double expense = 0;
+    double savings = 0;
 
-  List<DateTime?> _getAvailableMonths() {
-    final Set<String> uniqueMonths = {};
-    final List<DateTime> months = [];
+    for (final tx in transactions) {
+      switch (tx.type) {
+        case TransactionType.income:
+          income += tx.amount;
+          break;
+        case TransactionType.expense:
+          expense += tx.amount;
+          break;
+        case TransactionType.savings:
+          savings += tx.amount;
+          break;
+      }
+    }
 
-    // Always include current month in the list if we have transactions, or just always?
-    // Let's just rely on transaction data + current month relative to now.
     final now = DateTime.now();
-    final currentKey = '${now.year}-${now.month}';
-    uniqueMonths.add(currentKey);
-    months.add(DateTime(now.year, now.month));
+    final thisMonthCount = transactions.where((tx) {
+      return tx.date.year == now.year && tx.date.month == now.month;
+    }).length;
 
-    for (final tx in widget.transactions) {
-      final key = '${tx.date.year}-${tx.date.month}';
-      if (!uniqueMonths.contains(key)) {
-        uniqueMonths.add(key);
-        months.add(DateTime(tx.date.year, tx.date.month));
-      }
-    }
+    final oldestDate = transactions.isEmpty
+        ? now
+        : transactions
+              .map((tx) => tx.date)
+              .reduce((a, b) => a.isBefore(b) ? a : b);
 
-    months.sort((a, b) => b.compareTo(a)); // Newest first
-    return [null, ...months]; // Prepend null for "All"
+    return _ProfileStats(
+      income: income,
+      expense: expense,
+      savings: savings,
+      balance: income - expense - savings,
+      totalTransactions: transactions.length,
+      thisMonthTransactions: thisMonthCount,
+      memberSince: oldestDate,
+    );
   }
 
-  // Unified data access
-  List<_ChartPoint> _getChartData(DateTime? month) {
-    if (month != null) {
-      return _getDailyChartData(month);
-    } else {
-      return _getMonthlyChartData();
-    }
-  }
-
-  List<_ChartPoint> _getDailyChartData(DateTime month) {
-    final Map<int, _DailyStats> stats = {};
-    final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
-
-    // Initialize all days
-    for (int i = 1; i <= daysInMonth; i++) {
-      stats[i] = _DailyStats();
-    }
-
-    for (final tx in widget.transactions) {
-      if (isSameMonth(tx.date, month)) {
-        final day = tx.date.day;
-        final current = stats[day]!;
-        _accumulateStats(current, tx);
-      }
-    }
-
-    // Convert to ChartPoints
-    final List<_ChartPoint> points = [];
-    final sortedDays = stats.keys.toList()..sort();
-    for (final day in sortedDays) {
-      final stat = stats[day]!;
-      points.add(
-        _ChartPoint(
-          label: day.toString(),
-          income: stat.income,
-          expense: stat.expense,
-          savings: stat.savings,
-          deduct: stat.savingDeduct,
-        ),
-      );
-    }
-    return points;
-  }
-
-  List<_ChartPoint> _getMonthlyChartData() {
-    final Map<String, _DailyStats> stats = {}; // Key: "YYYY-MM-DD"
-    final List<DateTime> dateKeys = [];
-
-    for (final tx in widget.transactions) {
-      // Create key based on full date
-      final key =
-          '${tx.date.year}-${tx.date.month.toString().padLeft(2, '0')}-${tx.date.day.toString().padLeft(2, '0')}';
-      if (!stats.containsKey(key)) {
-        stats[key] = _DailyStats();
-        dateKeys.add(DateTime(tx.date.year, tx.date.month, tx.date.day));
-      }
-      final current = stats[key]!;
-      _accumulateStats(current, tx);
-    }
-
-    final sortedUniqueDates = dateKeys.toSet().toList()
-      ..sort((a, b) => a.compareTo(b));
-
-    final List<_ChartPoint> points = [];
-    final formatter = DateFormat('MMM d');
-
-    for (final date in sortedUniqueDates) {
-      final key =
-          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      final stat = stats[key] ?? _DailyStats();
-      points.add(
-        _ChartPoint(
-          label: formatter.format(date),
-          income: stat.income,
-          expense: stat.expense,
-          savings: stat.savings,
-          deduct: stat.savingDeduct,
-        ),
-      );
-    }
-    return points;
-  }
-
-  void _accumulateStats(_DailyStats current, Transaction tx) {
-    switch (tx.type) {
-      case TransactionType.income:
-        current.income += tx.amount;
-        break;
-      case TransactionType.expense:
-        current.expense += tx.amount;
-        break;
-      case TransactionType.savings:
-        current.savings += tx.amount;
-        break;
-      case TransactionType.savingDeduct:
-        current.savingDeduct += tx.amount;
-        break;
-    }
-  }
-
-  Widget _buildMonthSelector(List<DateTime?> months) {
-    final formatter = DateFormat('MMMM yyyy');
-
-    // Find effective value
-    DateTime? groupValue;
-    if (_selectedMonth == null) {
-      groupValue = null;
-    } else {
-      // Match by value equality
-      try {
-        groupValue = months.firstWhere(
-          (m) => m != null && isSameMonth(m, _selectedMonth!),
-        );
-      } catch (e) {
-        groupValue = null; // Should not happen given build logic
-      }
-    }
+  Widget _buildProfileDetailsCard(
+    SettingsState? settings,
+    String currency,
+    _ProfileStats stats,
+  ) {
+    final displayName = settings?.displayName ?? AppConstants.userDisplayName;
+    final initials = settings?.initials ?? AppConstants.userInitials;
+    final imagePath = settings?.profileImagePath;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.35)),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<DateTime?>(
-          value: groupValue,
-          dropdownColor: AppColors.surface,
-          icon: const Icon(Icons.calendar_month, color: AppColors.primary),
-          isExpanded: true,
-          style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
-          items: months.map((date) {
-            return DropdownMenuItem<DateTime?>(
-              value: date,
-              child: Text(date == null ? 'All Time' : formatter.format(date)),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() => _selectedMonth = value);
-          },
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _buildAvatar(imagePath, initials, 70),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(displayName, style: AppTextStyles.sectionHeader),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Currency: $currency',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Member since ${DateFormat('MMM yyyy').format(stats.memberSince)}',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _detailTile(
+                  title: 'Transactions',
+                  value: '${stats.totalTransactions}',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _detailTile(
+                  title: 'This Month',
+                  value: '${stats.thisMonthTransactions}',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _detailTile(
+                  title: 'Balance',
+                  value: '$currency${stats.balance.toStringAsFixed(0)}',
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildChartSection(List<_ChartPoint> data, String currency) {
-    if (data.isEmpty) return const SizedBox.shrink();
-
-    // Prepare spots
-    final List<FlSpot> incomeSpots = [];
-    final List<FlSpot> expenseSpots = [];
-    final List<FlSpot> savingsSpots = [];
-    final List<FlSpot> deductSpots = [];
-
-    // Calculate totals
-    double totalIncome = 0;
-    double totalExpense = 0;
-    double totalSavingsRaw = 0;
-    double totalDeduct = 0;
-
-    double maxY = 0;
-    double minY = 0;
-
-    for (int i = 0; i < data.length; i++) {
-      final point = data[i];
-      final x = i.toDouble();
-
-      // Calculate NET savings for the point (as requested "deduct reduce from saving")
-      // Visualizing the Net Savings flow
-      final netSavings = point.savings - point.deduct;
-
-      incomeSpots.add(FlSpot(x, point.income));
-      expenseSpots.add(FlSpot(x, point.expense));
-      savingsSpots.add(FlSpot(x, netSavings)); // Plot Net Savings
-      deductSpots.add(FlSpot(x, point.deduct));
-
-      totalIncome += point.income;
-      totalExpense += point.expense;
-      totalSavingsRaw += point.savings;
-      totalDeduct += point.deduct;
-
-      final pointMax = [
-        point.income,
-        point.expense,
-        netSavings,
-        point.deduct,
-      ].reduce(math.max);
-      final pointMin = [
-        point.income,
-        point.expense,
-        netSavings,
-        point.deduct,
-      ].reduce(math.min);
-
-      if (pointMax > maxY) maxY = pointMax;
-      if (pointMin < minY) minY = pointMin;
-    }
-
-    double totalNetSavings = totalSavingsRaw - totalDeduct;
-
-    // Add buffers
-    maxY = maxY * 1.2;
-    if (maxY == 0) maxY = 100;
-    // Lower buffer if we have negative values
-    if (minY < 0)
-      minY = minY * 1.2;
-    else
-      minY = 0;
-
-    // Grid interval
-    final interval = (maxY - minY) / 5;
-    final double safeInterval = interval <= 0 ? 20 : interval;
-
+  Widget _buildAvatar(String? imagePath, String initials, double size) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.savings],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: imagePath != null
+          ? Image.file(
+              File(imagePath),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Center(
+                  child: Text(
+                    initials,
+                    style: AppTextStyles.appTitle.copyWith(
+                      color: Colors.white,
+                      fontSize: 24,
+                    ),
+                  ),
+                );
+              },
+            )
+          : Center(
+              child: Text(
+                initials,
+                style: AppTextStyles.appTitle.copyWith(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSummaryTiles(_ProfileStats stats, String currency) {
+    return Row(
+      children: [
+        Expanded(
+          child: _summaryTile(
+            'Income',
+            stats.income,
+            currency,
+            AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _summaryTile(
+            'Expense',
+            stats.expense,
+            currency,
+            AppColors.expense,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _summaryTile(
+            'Savings',
+            stats.savings,
+            currency,
+            AppColors.savings,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryTile(
+    String label,
+    double value,
+    String currency,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.25)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _chartLegend('Income', AppColors.primary, totalIncome, currency),
-              _chartLegend(
-                'Expense',
-                AppColors.expense,
-                totalExpense,
-                currency,
-              ),
-            ],
+          Text(
+            label,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              // Show Net Savings in legend
-              _chartLegend(
-                'Savings',
-                AppColors.savings,
-                totalNetSavings,
-                currency,
-              ),
-              _chartLegend('From Sav.', Colors.orange, totalDeduct, currency),
-            ],
-          ),
-          const SizedBox(height: 24),
-          AspectRatio(
-            aspectRatio: 1.5,
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: safeInterval,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: AppColors.border.withValues(alpha: 0.1),
-                      strokeWidth: 1,
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      interval: 1, // Show all or skip? For daily use dynamic?
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-                        if (index < 0 || index >= data.length)
-                          return const SizedBox.shrink();
-
-                        // Optimize labels: if many points, skip some
-                        if (data.length > 10 &&
-                            index % (data.length ~/ 6) != 0) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            data[index].label,
-                            style: AppTextStyles.caption.copyWith(fontSize: 10),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: safeInterval,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        // Avoid clutter
-                        if (value == minY && minY == 0)
-                          return const SizedBox.shrink();
-
-                        return Text(
-                          _compactCurrency(value),
-                          style: AppTextStyles.caption.copyWith(fontSize: 10),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                minX: 0,
-                maxX: (data.length - 1).toDouble(),
-                minY: minY,
-                maxY: maxY,
-                lineBarsData: [
-                  _lineData(incomeSpots, AppColors.primary),
-                  _lineData(expenseSpots, AppColors.expense),
-                  _lineData(savingsSpots, AppColors.savings),
-                  _lineData(deductSpots, Colors.orange),
-                ],
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (touchedSpot) => AppColors.surfaceVariant,
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        // Find matching chart point logic if needed, but Y value is mostly enough
-                        return LineTooltipItem(
-                          '${spot.y.toStringAsFixed(0)}',
-                          AppTextStyles.caption.copyWith(
-                            color: spot.bar.color,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
-                ),
-              ),
+          const SizedBox(height: 6),
+          Text(
+            '$currency${value.toStringAsFixed(0)}',
+            style: AppTextStyles.summaryAmount.copyWith(
+              color: color,
+              fontSize: 14,
             ),
           ),
         ],
@@ -476,51 +327,32 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  LineChartBarData _lineData(List<FlSpot> spots, Color color) {
-    return LineChartBarData(
-      spots: spots,
-      isCurved: true,
-      color: color,
-      barWidth: 2,
-      isStrokeCapRound: true,
-      dotData: const FlDotData(show: false),
-      belowBarData: BarAreaData(
-        show: true,
-        color: color.withValues(alpha: 0.1),
+  Widget _detailTile({required String title, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundElevated,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textTertiary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _chartLegend(
-    String label,
-    Color color,
-    double amount,
-    String currency,
-  ) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '$label: $currency${amount.toStringAsFixed(0)}',
-          style: AppTextStyles.caption,
-        ),
-      ],
-    );
-  }
-
-  String _compactCurrency(double value) {
-    if (value.abs() >= 1000) {
-      return '${(value / 1000).toStringAsFixed(1)}k';
-    }
-    return value.toStringAsFixed(0);
-  }
-
-  // Settings methods
   Future<void> _showEditProfileDialog() async {
     final settings = ref.read(settingsProvider).asData?.value;
     final initialName = settings?.displayName ?? AppConstants.userDisplayName;
@@ -530,8 +362,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     String? newImagePath = initialImage;
     final ImagePicker picker = ImagePicker();
 
-    // Use a StatefulBuilder to handle local state within the dialog
-    await showDialog(
+    await showDialog<void>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
@@ -543,7 +374,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               children: [
                 GestureDetector(
                   onTap: () async {
-                    final XFile? image = await picker.pickImage(
+                    final image = await picker.pickImage(
                       source: ImageSource.gallery,
                     );
                     if (image != null) {
@@ -552,28 +383,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   },
                   child: Stack(
                     children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.background,
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: newImagePath != null
-                            ? Image.file(File(newImagePath!), fit: BoxFit.cover)
-                            : const Icon(
-                                Icons.person,
-                                size: 40,
-                                color: AppColors.textSecondary,
-                              ),
+                      _buildAvatar(
+                        newImagePath,
+                        settings?.initials ?? AppConstants.userInitials,
+                        84,
                       ),
                       Positioned(
                         right: 0,
                         bottom: 0,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(5),
                           decoration: const BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
@@ -588,7 +407,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                if (newImagePath != null)
+                  TextButton(
+                    onPressed: () => setState(() => newImagePath = null),
+                    child: const Text('Remove Photo'),
+                  ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
@@ -611,12 +435,19 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         .read(settingsProvider.notifier)
                         .updateDisplayName(newName);
                   }
-                  if (newImagePath != initialImage && newImagePath != null) {
+
+                  if (newImagePath == null) {
+                    await ref
+                        .read(settingsProvider.notifier)
+                        .clearProfileImage();
+                  } else if (newImagePath != initialImage) {
                     await ref
                         .read(settingsProvider.notifier)
                         .updateProfileImage(newImagePath!);
                   }
-                  if (mounted) Navigator.pop(context);
+
+                  if (!mounted) return;
+                  Navigator.of(this.context).pop();
                 },
                 child: const Text('Save'),
               ),
@@ -628,16 +459,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   void _showCurrencyPicker() {
-    final currencies = [
+    const currencies = [
       {'code': 'USD', 'symbol': '\$'},
       {'code': 'EUR', 'symbol': '€'},
       {'code': 'GBP', 'symbol': '£'},
       {'code': 'JPY', 'symbol': '¥'},
-      {'code': 'LK', 'symbol': 'Rs'},
+      {'code': 'LKR', 'symbol': 'Rs'},
       {'code': 'INR', 'symbol': '₹'},
     ];
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
@@ -658,11 +489,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               ),
             ),
             title: Text('${currency['code']} (${currency['symbol']})'),
-            onTap: () {
-              ref
+            onTap: () async {
+              await ref
                   .read(settingsProvider.notifier)
                   .updateCurrency(currency['symbol']!);
-              Navigator.pop(context);
+              if (!mounted) return;
+              Navigator.of(this.context).pop();
             },
           );
         },
@@ -670,9 +502,78 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
+  Future<void> _exportTransactionsCsv() async {
+    final settings = ref.read(settingsProvider).asData?.value;
+    final currency = settings?.currencySymbol ?? AppConstants.currencySymbol;
+    final formatter = DateFormat('yyyy-MM-dd HH:mm');
+
+    final sorted = [...widget.transactions]
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    final csv = StringBuffer();
+    csv.writeln('Date,Title,Category,Type,Amount ($currency)');
+
+    for (final tx in sorted) {
+      csv.writeln(
+        '${formatter.format(tx.date)},${_escapeCsv(tx.title)},${_escapeCsv(tx.category)},${tx.type.name},${tx.amount.toStringAsFixed(2)}',
+      );
+    }
+
+    try {
+      final directory = await _getDownloadDirectory();
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final path = p.join(directory.path, 'transactions_$timestamp.csv');
+      await File(path).writeAsBytes(utf8.encode(csv.toString()), flush: true);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('CSV exported to: $path')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to export CSV: $error')));
+    }
+  }
+
+  String _escapeCsv(String input) {
+    final escaped = input.replaceAll('"', '""');
+    return '"$escaped"';
+  }
+
+  Future<Directory> _getDownloadDirectory() async {
+    final downloads = await getDownloadsDirectory();
+    if (downloads != null) {
+      return downloads;
+    }
+    return getApplicationDocumentsDirectory();
+  }
+
+  void _showAboutDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('About My Money Manager'),
+        content: Text(
+          'Track your income, expenses, and savings in one place.\n\nVersion: 1.0.0\nDeveloper: Chamuditha Perera',
+          style: AppTextStyles.body,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSettingsOption({
     required IconData icon,
     required String title,
+    required String subtitle,
     required VoidCallback onTap,
   }) {
     return InkWell(
@@ -696,100 +597,51 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               child: Icon(icon, size: 20, color: AppColors.primary),
             ),
             const SizedBox(width: 16),
-            Text(
-              title,
-              style: AppTextStyles.body.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Spacer(),
             Icon(Icons.chevron_right, size: 20, color: AppColors.textTertiary),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildProfileHeader() {
-    final settingsAsync = ref.watch(settingsProvider);
-    final settings = settingsAsync.asData?.value;
-
-    final displayName = settings?.displayName ?? AppConstants.userDisplayName;
-    final initials = settings?.initials ?? AppConstants.userInitials;
-    final imagePath = settings?.profileImagePath;
-
-    return Column(
-      children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [AppColors.primary, AppColors.savings],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(color: AppColors.background, width: 4),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          clipBehavior: Clip.antiAlias,
-          child: imagePath != null
-              ? Image.file(
-                  File(imagePath),
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.person, size: 48, color: Colors.white),
-                )
-              : Text(
-                  initials,
-                  style: AppTextStyles.appTitle.copyWith(
-                    color: Colors.white,
-                    fontSize: 32,
-                  ),
-                ),
-        ),
-        const SizedBox(height: 16),
-        Text(displayName, style: AppTextStyles.appTitle),
-        const SizedBox(height: 4),
-        Text(
-          'Premium Member',
-          style: AppTextStyles.caption.copyWith(color: AppColors.savings),
-        ),
-      ],
-    );
-  }
 }
 
-class _DailyStats {
-  double income = 0;
-  double expense = 0;
-  double savings = 0;
-  double savingDeduct = 0;
-}
-
-class _ChartPoint {
-  _ChartPoint({
-    required this.label,
+class _ProfileStats {
+  const _ProfileStats({
     required this.income,
     required this.expense,
     required this.savings,
-    required this.deduct,
+    required this.balance,
+    required this.totalTransactions,
+    required this.thisMonthTransactions,
+    required this.memberSince,
   });
 
-  final String label;
   final double income;
   final double expense;
   final double savings;
-  final double deduct;
+  final double balance;
+  final int totalTransactions;
+  final int thisMonthTransactions;
+  final DateTime memberSince;
 }
