@@ -121,7 +121,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
               _typeChip('Income', TransactionType.income),
               _typeChip('Expense', TransactionType.expense),
               _typeChip('Savings', TransactionType.savings),
-              _typeChip('Deduct from Saving', TransactionType.savingDeduct),
+              _typeChip('Deduct', TransactionType.savingDeduct),
             ],
           ),
         ],
@@ -628,7 +628,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                       'Savings: $currency${summary.savings.toStringAsFixed(2)}',
                     ),
                     pw.Text(
-                      'Deduct from Saving: $currency${summary.savingDeduct.toStringAsFixed(2)}',
+                      'Deduct: $currency${summary.savingDeduct.toStringAsFixed(2)}',
                     ),
                     pw.Text(
                       'Net Savings: $currency${summary.netSavings.toStringAsFixed(2)}',
@@ -675,9 +675,13 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
 
       final bytes = await pdf.save();
       final targetDir = await _getDownloadDirectory();
+      final reportDir = Directory(p.join(targetDir.path, 'Money Manager'));
+      if (!await reportDir.exists()) {
+        await reportDir.create(recursive: true);
+      }
       final fileName =
           'money_report_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
-      final filePath = p.join(targetDir.path, fileName);
+      final filePath = p.join(reportDir.path, fileName);
       await File(filePath).writeAsBytes(bytes, flush: true);
 
       if (!mounted) return;
