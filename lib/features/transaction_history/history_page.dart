@@ -32,22 +32,33 @@ class HistoryPage extends StatelessWidget {
 
     final grouped = _groupByDate(filtered);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Transaction History', style: AppTextStyles.appTitle),
-          const SizedBox(height: 20),
-          FilterBar(
-            activeType: activeType,
-            onTypeChange: onTypeChange,
-            activeDate: activeDate,
-            onDateChange: onDateChange,
+    final groupedEntries = grouped.entries.toList();
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Transaction History', style: AppTextStyles.appTitle),
+                const SizedBox(height: 20),
+                FilterBar(
+                  activeType: activeType,
+                  onTypeChange: onTypeChange,
+                  activeDate: activeDate,
+                  onDateChange: onDateChange,
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          if (grouped.isEmpty)
-            Center(
+        ),
+        if (groupedEntries.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 48),
                 child: Text(
@@ -57,10 +68,14 @@ class HistoryPage extends StatelessWidget {
                   ),
                 ),
               ),
-            )
-          else
-            Column(
-              children: grouped.entries.map((entry) {
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final entry = groupedEntries[index];
                 final dateHeader = _formatHeader(entry.key);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 18),
@@ -88,10 +103,10 @@ class HistoryPage extends StatelessWidget {
                     ],
                   ),
                 );
-              }).toList(),
+              }, childCount: groupedEntries.length),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 

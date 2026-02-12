@@ -83,15 +83,29 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive ? AppColors.primary : AppColors.textTertiary;
+    final bgColor = isActive
+        ? AppColors.primary.withValues(alpha: 0.16)
+        : AppColors.backgroundElevated;
+    final borderColor = isActive
+        ? AppColors.primary.withValues(alpha: 0.6)
+        : AppColors.border.withValues(alpha: 0.6);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.large),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 24, color: color),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: bgColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: borderColor, width: 1),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
             const SizedBox(height: 4),
             Text(label, style: AppTextStyles.navLabel.copyWith(color: color)),
           ],
