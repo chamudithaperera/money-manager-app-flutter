@@ -82,7 +82,12 @@ class _HomePageState extends ConsumerState<HomePage> {
         children: [
           _buildHeader(),
           const SizedBox(height: 24),
-          BalanceCard(balance: stats.balance),
+          BalanceCard(
+            balance: stats.balance,
+            income: stats.income,
+            expenses: stats.expenses,
+            savings: stats.savings,
+          ),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -206,7 +211,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       children: [
         Text('Recent Activity', style: AppTextStyles.sectionHeader),
         TextButton(
-          onPressed: () {},
+          onPressed: () => setState(() => _activeTab = BottomTab.history),
           child: Text('See All', style: AppTextStyles.link),
         ),
       ],

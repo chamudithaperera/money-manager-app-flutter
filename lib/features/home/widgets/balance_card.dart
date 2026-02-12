@@ -4,9 +4,18 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
 
 class BalanceCard extends StatefulWidget {
-  const BalanceCard({super.key, required this.balance});
+  const BalanceCard({
+    super.key,
+    required this.balance,
+    required this.income,
+    required this.expenses,
+    required this.savings,
+  });
 
   final double balance;
+  final double income;
+  final double expenses;
+  final double savings;
 
   @override
   State<BalanceCard> createState() => _BalanceCardState();
@@ -17,6 +26,14 @@ class _BalanceCardState extends State<BalanceCard> {
 
   @override
   Widget build(BuildContext context) {
+    final rawProgress = widget.income <= 0
+        ? 0.0
+        : (widget.income - widget.expenses - widget.savings) / widget.income;
+    final progress = rawProgress.clamp(0.0, 1.0);
+    final percentLabel = '${(progress * 100).toStringAsFixed(0)}% of income';
+    final percentColor = widget.balance >= 0
+        ? AppColors.primary
+        : AppColors.expense;
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -89,34 +106,37 @@ class _BalanceCardState extends State<BalanceCard> {
               Row(
                 children: [
                   Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        height: 6,
-                        color: AppColors.progressTrack,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth * progress;
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
                           child: Container(
-                            width: MediaQuery.sizeOf(context).width * 0.45,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.primary,
-                                  AppColors.primaryLight,
-                                ],
+                            height: 6,
+                            color: AppColors.progressTrack,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                width: width,
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppColors.primary,
+                                      AppColors.primaryLight,
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '+12% vs last mo',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.primary,
-                    ),
+                    percentLabel,
+                    style: AppTextStyles.caption.copyWith(color: percentColor),
                   ),
                 ],
               ),
