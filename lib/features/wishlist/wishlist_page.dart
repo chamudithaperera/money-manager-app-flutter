@@ -74,8 +74,7 @@ class WishlistPage extends ConsumerWidget {
                               item: item,
                               onLongPress: () =>
                                   _showItemActions(context, ref, item),
-                              onTap: () =>
-                                  _showAddSheet(context, ref, initial: item),
+                              onTap: () => _showItemActions(context, ref, item),
                             ),
                           ),
                         ),
@@ -91,8 +90,7 @@ class WishlistPage extends ConsumerWidget {
                               item: item,
                               onLongPress: () =>
                                   _showItemActions(context, ref, item),
-                              onTap: () =>
-                                  _showAddSheet(context, ref, initial: item),
+                              onTap: () => _showItemActions(context, ref, item),
                             ),
                           ),
                         ),
@@ -201,46 +199,80 @@ class WishlistPage extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
+        final estimatedDate = DateFormat(
+          'MMM d, yyyy',
+        ).format(item.estimatedDate);
+        final completedDate = item.completedDate == null
+            ? null
+            : DateFormat('MMM d, yyyy').format(item.completedDate!);
+        final status = item.isCompleted ? 'Completed' : 'Pending';
+        final shownCost = item.realCost ?? item.estimatedPrice;
+
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Symbols.edit, color: AppColors.primary),
-                title: const Text('Edit'),
-                onTap: () =>
-                    Navigator.of(sheetContext).pop(_WishlistSheetAction.edit),
-              ),
-              ListTile(
-                leading: Icon(
-                  item.isCompleted ? Symbols.restart_alt : Symbols.task_alt,
-                  color: AppColors.primary,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Wishlist Item Details',
+                  style: AppTextStyles.sectionHeader,
                 ),
-                title: Text(
-                  item.isCompleted ? 'Edit Completion' : 'Mark as Completed',
+                const SizedBox(height: 12),
+                _wishlistDetailRow('Name', item.name),
+                _wishlistDetailRow('Description', item.description),
+                _wishlistDetailRow('Status', status),
+                _wishlistDetailRow('Estimated Date', estimatedDate),
+                _wishlistDetailRow(
+                  item.isCompleted ? 'Real Cost' : 'Estimated Cost',
+                  '${_currency(ref)} ${shownCost.toStringAsFixed(2)}',
                 ),
-                onTap: () => Navigator.of(
-                  sheetContext,
-                ).pop(_WishlistSheetAction.complete),
-              ),
-              if (item.isCompleted)
+                if (item.isCompleted && completedDate != null)
+                  _wishlistDetailRow('Completed Date', completedDate),
+                const SizedBox(height: 10),
                 ListTile(
-                  leading: const Icon(
-                    Symbols.undo,
-                    color: AppColors.textSecondary,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Symbols.edit, color: AppColors.primary),
+                  title: const Text('Edit'),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_WishlistSheetAction.edit),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    item.isCompleted ? Symbols.restart_alt : Symbols.task_alt,
+                    color: AppColors.primary,
                   ),
-                  title: const Text('Mark as Pending'),
+                  title: Text(
+                    item.isCompleted ? 'Edit Completion' : 'Mark as Completed',
+                  ),
                   onTap: () => Navigator.of(
                     sheetContext,
-                  ).pop(_WishlistSheetAction.pending),
+                  ).pop(_WishlistSheetAction.complete),
                 ),
-              ListTile(
-                leading: const Icon(Symbols.delete, color: AppColors.expense),
-                title: const Text('Delete'),
-                onTap: () =>
-                    Navigator.of(sheetContext).pop(_WishlistSheetAction.delete),
-              ),
-            ],
+                if (item.isCompleted)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Symbols.undo,
+                      color: AppColors.textSecondary,
+                    ),
+                    title: const Text('Mark as Pending'),
+                    onTap: () => Navigator.of(
+                      sheetContext,
+                    ).pop(_WishlistSheetAction.pending),
+                  ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Symbols.delete, color: AppColors.expense),
+                  title: const Text('Delete'),
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_WishlistSheetAction.delete),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -264,6 +296,32 @@ class WishlistPage extends ConsumerWidget {
           break;
       }
     });
+  }
+
+  String _currency(WidgetRef ref) {
+    return ref.read(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
+  }
+
+  Widget _wishlistDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 116,
+            child: Text(
+              '$label:',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(child: Text(value, style: AppTextStyles.body)),
+        ],
+      ),
+    );
   }
 
   Future<void> _showCompletionSheet(

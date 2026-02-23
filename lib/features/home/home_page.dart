@@ -127,6 +127,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               for (final tx in recentTransactions)
                 ActivityItem(
                   transaction: tx,
+                  onTap: () => _showTransactionDetails(tx),
                   onLongPress: () => _showTransactionActions(tx),
                 ),
             ],
@@ -248,6 +249,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       onTypeChange: (type) => setState(() => _filterType = type),
       activeDate: _dateFilter,
       onDateChange: (date) => setState(() => _dateFilter = date),
+      onTransactionTap: _showTransactionDetails,
       onTransactionLongPress: _showTransactionActions,
     );
   }
@@ -329,6 +331,149 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  Future<void> _showTransactionDetails(Transaction transaction) async {
+    final currency =
+        ref.read(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
+    final dateText = _formatDateTime(transaction.date);
+    final amountPrefix = switch (transaction.type) {
+      TransactionType.income => '+',
+      TransactionType.expense => '-',
+      TransactionType.savingDeduct => '-',
+      TransactionType.savings => '',
+    };
+
+    final action = await showModalBottomSheet<_TransactionDetailAction>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Transaction Details', style: AppTextStyles.sectionHeader),
+                const SizedBox(height: 14),
+                _detailRow('Title', transaction.title),
+                _detailRow('Category', transaction.category),
+                _detailRow('Type', _typeLabel(transaction.type)),
+                _detailRow('Date', dateText),
+                _detailRow(
+                  'Amount',
+                  '$amountPrefix$currency ${transaction.amount.toStringAsFixed(2)}',
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(
+                          sheetContext,
+                        ).pop(_TransactionDetailAction.edit),
+                        icon: const Icon(Symbols.edit),
+                        label: const Text('Edit'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.expense,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => Navigator.of(
+                          sheetContext,
+                        ).pop(_TransactionDetailAction.delete),
+                        icon: const Icon(Symbols.delete),
+                        label: const Text('Delete'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case _TransactionDetailAction.edit:
+        _showAddSheet(initial: transaction);
+        break;
+      case _TransactionDetailAction.delete:
+        await _confirmDelete(transaction);
+        break;
+    }
+  }
+
+  String _typeLabel(TransactionType type) {
+    return switch (type) {
+      TransactionType.income => 'Income',
+      TransactionType.expense => 'Expense',
+      TransactionType.savings => 'Savings',
+      TransactionType.savingDeduct => 'Saving Deduct',
+    };
+  }
+
+  String _formatDateTime(DateTime date) {
+    final month = _monthName(date.month);
+    final minute = date.minute.toString().padLeft(2, '0');
+    final hour = date.hour.toString().padLeft(2, '0');
+    return '$month ${date.day}, ${date.year} $hour:$minute';
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[month - 1];
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              '$label:',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _confirmDelete(Transaction transaction) async {
     final id = transaction.id;
     if (id == null) return;
@@ -355,3 +500,5 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 }
+
+enum _TransactionDetailAction { edit, delete }

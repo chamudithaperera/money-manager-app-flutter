@@ -13,6 +13,7 @@ class HistoryPage extends StatelessWidget {
     required this.onTypeChange,
     required this.activeDate,
     required this.onDateChange,
+    required this.onTransactionTap,
     required this.onTransactionLongPress,
   });
 
@@ -21,6 +22,7 @@ class HistoryPage extends StatelessWidget {
   final ValueChanged<TransactionType?> onTypeChange;
   final String activeDate;
   final ValueChanged<String> onDateChange;
+  final ValueChanged<Transaction> onTransactionTap;
   final ValueChanged<Transaction> onTransactionLongPress;
 
   @override
@@ -97,6 +99,7 @@ class HistoryPage extends StatelessWidget {
                           for (final tx in entry.value)
                             ActivityItem(
                               transaction: tx,
+                              onTap: () => onTransactionTap(tx),
                               onLongPress: () => onTransactionLongPress(tx),
                             ),
                         ],
