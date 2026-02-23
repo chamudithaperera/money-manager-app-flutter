@@ -31,6 +31,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final settings = ref.watch(settingsProvider).asData?.value;
     final currency = settings?.currencySymbol ?? AppConstants.currencySymbol;
     final stats = _buildStats(widget.transactions);
+    final monthlyBudget = settings?.monthlyBudget;
+    final thisMonthExpense = _thisMonthExpense(widget.transactions);
+    final savingsRate = stats.income <= 0
+        ? 0.0
+        : (stats.savings / stats.income) * 100;
+    final averageTransaction = _averageTransactionAmount(widget.transactions);
+    final topExpenseCategory = _topExpenseCategory(widget.transactions);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
@@ -42,6 +49,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           Text('Quick Overview', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 12),
           _buildSummaryTiles(stats, currency),
+          const SizedBox(height: 16),
+          _buildBudgetCard(
+            currency: currency,
+            monthlyBudget: monthlyBudget,
+            thisMonthExpense: thisMonthExpense,
+          ),
+          const SizedBox(height: 24),
+          Text('Smart Insights', style: AppTextStyles.sectionHeader),
+          const SizedBox(height: 12),
+          _buildInsightGrid(
+            currency: currency,
+            savingsRate: savingsRate,
+            averageTransaction: averageTransaction,
+            topExpenseCategory: topExpenseCategory,
+            thisMonthExpense: thisMonthExpense,
+          ),
           const SizedBox(height: 24),
           Text('Profile Options', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 12),
@@ -57,6 +80,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             title: 'Change Currency',
             subtitle: 'Update how values are shown',
             onTap: _showCurrencyPicker,
+          ),
+          const SizedBox(height: 10),
+          _buildSettingsOption(
+            icon: Symbols.target,
+            title: 'Monthly Budget',
+            subtitle: monthlyBudget == null
+                ? 'Set your monthly spending target'
+                : 'Current budget: $currency${monthlyBudget.toStringAsFixed(0)}',
+            onTap: () => _showBudgetDialog(currency, monthlyBudget),
           ),
           const SizedBox(height: 10),
           _buildSettingsOption(
@@ -126,7 +158,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
 
     final netSavings = savings - savingDeduct;
-    final balance = income - expense - savings;
+    final balance = income - expense - netSavings;
     final now = DateTime.now();
     final thisMonthCount = transactions.where((tx) {
       return tx.date.year == now.year && tx.date.month == now.month;
@@ -176,10 +208,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(displayName, style: AppTextStyles.sectionHeader),
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.sectionHeader,
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       'Currency: $currency',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -187,6 +226,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     const SizedBox(height: 2),
                     Text(
                       'Member since ${DateFormat('MMM yyyy').format(stats.memberSince)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -300,6 +341,170 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
+  Widget _buildBudgetCard({
+    required String currency,
+    required double? monthlyBudget,
+    required double thisMonthExpense,
+  }) {
+    final budget = monthlyBudget;
+    final hasBudget = budget != null && budget > 0;
+    final ratio = hasBudget ? (thisMonthExpense / budget).clamp(0.0, 1.0) : 0.0;
+    final remaining = hasBudget ? budget - thisMonthExpense : 0.0;
+    final isOverBudget = hasBudget && remaining < 0;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Symbols.target, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Monthly Budget',
+                  style: AppTextStyles.sectionLabel,
+                ),
+              ),
+              TextButton(
+                onPressed: () => _showBudgetDialog(currency, monthlyBudget),
+                child: Text(hasBudget ? 'Edit' : 'Set'),
+              ),
+            ],
+          ),
+          if (!hasBudget)
+            Text(
+              'Set a monthly target to track this month spending against your goal.',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            )
+          else ...[
+            const SizedBox(height: 6),
+            Text(
+              'Spent: $currency${thisMonthExpense.toStringAsFixed(2)} / $currency${budget.toStringAsFixed(2)}',
+              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 8,
+                backgroundColor: AppColors.progressTrack,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isOverBudget ? AppColors.expense : AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isOverBudget
+                  ? 'Over budget by $currency${(-remaining).toStringAsFixed(2)}'
+                  : 'Remaining: $currency${remaining.toStringAsFixed(2)}',
+              style: AppTextStyles.caption.copyWith(
+                color: isOverBudget
+                    ? AppColors.expense
+                    : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightGrid({
+    required String currency,
+    required double savingsRate,
+    required double averageTransaction,
+    required String topExpenseCategory,
+    required double thisMonthExpense,
+  }) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      childAspectRatio: 1.5,
+      children: [
+        _insightTile(
+          icon: Symbols.savings,
+          title: 'Savings Rate',
+          value: '${savingsRate.toStringAsFixed(1)}%',
+          color: AppColors.savings,
+        ),
+        _insightTile(
+          icon: Symbols.monitoring,
+          title: 'Avg Transaction',
+          value: '$currency${averageTransaction.toStringAsFixed(2)}',
+          color: AppColors.primary,
+        ),
+        _insightTile(
+          icon: Symbols.category,
+          title: 'Top Expense',
+          value: topExpenseCategory,
+          color: AppColors.expense,
+        ),
+        _insightTile(
+          icon: Symbols.calendar_month,
+          title: 'Month Expense',
+          value: '$currency${thisMonthExpense.toStringAsFixed(2)}',
+          color: AppColors.primary,
+        ),
+      ],
+    );
+  }
+
+  Widget _insightTile({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _summaryTile(
     String label,
     double value,
@@ -325,6 +530,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           const SizedBox(height: 6),
           Text(
             '$currency${value.toStringAsFixed(0)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTextStyles.summaryAmount.copyWith(
               color: color,
               fontSize: 14,
@@ -352,13 +559,114 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  double _thisMonthExpense(List<Transaction> transactions) {
+    final now = DateTime.now();
+    return transactions
+        .where(
+          (tx) =>
+              tx.type == TransactionType.expense &&
+              tx.date.year == now.year &&
+              tx.date.month == now.month,
+        )
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+  }
+
+  double _averageTransactionAmount(List<Transaction> transactions) {
+    if (transactions.isEmpty) return 0;
+    final total = transactions.fold(0.0, (sum, tx) => sum + tx.amount);
+    return total / transactions.length;
+  }
+
+  String _topExpenseCategory(List<Transaction> transactions) {
+    final categoryTotals = <String, double>{};
+    for (final tx in transactions) {
+      if (tx.type != TransactionType.expense) continue;
+      categoryTotals.update(
+        tx.category,
+        (value) => value + tx.amount,
+        ifAbsent: () => tx.amount,
+      );
+    }
+    if (categoryTotals.isEmpty) return 'N/A';
+    final top = categoryTotals.entries.reduce((a, b) {
+      return a.value >= b.value ? a : b;
+    });
+    return top.key;
+  }
+
+  Future<void> _showBudgetDialog(String currency, double? currentBudget) async {
+    final controller = TextEditingController(
+      text: currentBudget?.toStringAsFixed(2) ?? '',
+    );
+
+    try {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text('Monthly Budget'),
+          content: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Budget Amount',
+              prefixText: '$currency ',
+              hintText: '0.00',
+            ),
+          ),
+          actions: [
+            if (currentBudget != null)
+              TextButton(
+                onPressed: () => Navigator.of(context).pop('clear'),
+                child: const Text('Clear'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('cancel'),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('save'),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+
+      if (action == 'clear') {
+        await ref.read(settingsProvider.notifier).updateMonthlyBudget(null);
+        return;
+      }
+
+      if (action != 'save') return;
+
+      final parsed = double.tryParse(controller.text.trim());
+      if (parsed == null || parsed <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid budget amount.')),
+        );
+        return;
+      }
+
+      await ref.read(settingsProvider.notifier).updateMonthlyBudget(parsed);
+    } finally {
+      controller.dispose();
+    }
   }
 
   Future<void> _showEditProfileDialog() async {
@@ -603,6 +911,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 children: [
                   Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.body.copyWith(
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
@@ -611,6 +921,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
                     ),

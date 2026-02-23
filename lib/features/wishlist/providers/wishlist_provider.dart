@@ -30,15 +30,37 @@ class WishlistNotifier extends AsyncNotifier<List<WishlistItem>> {
     );
   }
 
-  Future<void> toggleComplete(int id) async {
+  Future<void> markCompleted({
+    required int id,
+    required double realCost,
+    required DateTime completedDate,
+  }) async {
     final previousState = await future;
     final itemIndex = previousState.indexWhere((i) => i.id == id);
     if (itemIndex != -1) {
       final item = previousState[itemIndex];
-      final updatedItem = item.copyWith(isCompleted: !item.isCompleted);
+      final updatedItem = item.copyWith(
+        isCompleted: true,
+        realCost: realCost,
+        completedDate: completedDate,
+      );
       await _repository.updateItem(updatedItem);
+      final newState = [...previousState];
+      newState[itemIndex] = updatedItem;
+      state = AsyncValue.data(newState);
+    }
+  }
 
-      // Update local state
+  Future<void> markPending(int id) async {
+    final previousState = await future;
+    final itemIndex = previousState.indexWhere((i) => i.id == id);
+    if (itemIndex != -1) {
+      final item = previousState[itemIndex];
+      final updatedItem = item.copyWith(
+        isCompleted: false,
+        clearCompletionData: true,
+      );
+      await _repository.updateItem(updatedItem);
       final newState = [...previousState];
       newState[itemIndex] = updatedItem;
       state = AsyncValue.data(newState);

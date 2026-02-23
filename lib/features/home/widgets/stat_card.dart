@@ -34,11 +34,19 @@ class StatCard extends StatelessWidget {
             child: Icon(config.icon, size: 20, color: config.color),
           ),
           const SizedBox(height: 10),
-          Text(config.label, style: AppTextStyles.caption),
-          const SizedBox(height: 4),
           Text(
-            '${AppConstants.currencySymbol} ${amount.toStringAsFixed(0)}',
-            style: AppTextStyles.summaryAmount.copyWith(fontSize: 14),
+            config.label,
+            style: AppTextStyles.caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '${AppConstants.currencySymbol} ${amount.toStringAsFixed(0)}',
+              style: AppTextStyles.summaryAmount.copyWith(fontSize: 14),
+            ),
           ),
         ],
       ),

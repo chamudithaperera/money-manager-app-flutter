@@ -4,7 +4,9 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
+import '../../providers/settings_provider.dart';
 import 'models/wishlist_item.dart';
 import 'providers/wishlist_provider.dart';
 import 'widgets/add_wishlist_modal.dart';
@@ -45,50 +47,57 @@ class WishlistPage extends ConsumerWidget {
                       ),
                     );
                   }
-                  final grouped = <String, List<WishlistItem>>{};
-                  for (final item in wishlistItems) {
-                    final key = DateFormat(
-                      'MMMM yyyy',
-                    ).format(item.estimatedDate);
-                    grouped.putIfAbsent(key, () => []).add(item);
-                  }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
-                    itemCount: grouped.length,
-                    itemBuilder: (context, index) {
-                      final key = grouped.keys.elementAt(index);
-                      final items = grouped[key]!;
+                  final planned =
+                      wishlistItems.where((item) => !item.isCompleted).toList()
+                        ..sort(
+                          (a, b) => a.estimatedDate.compareTo(b.estimatedDate),
+                        );
+                  final completed =
+                      wishlistItems.where((item) => item.isCompleted).toList()
+                        ..sort((a, b) {
+                          final aDate = a.completedDate ?? a.estimatedDate;
+                          final bDate = b.completedDate ?? b.estimatedDate;
+                          return bDate.compareTo(aDate);
+                        });
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Text(
-                              key,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.primary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 110),
+                    children: [
+                      if (planned.isNotEmpty) ...[
+                        _sectionTitle('Planned Items'),
+                        const SizedBox(height: 10),
+                        ...planned.map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: WishlistItemWidget(
+                              item: item,
+                              onLongPress: () =>
+                                  _showItemActions(context, ref, item),
+                              onTap: () =>
+                                  _showAddSheet(context, ref, initial: item),
                             ),
                           ),
-                          ...items.map(
-                            (item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: WishlistItemWidget(
-                                item: item,
-                                onLongPress: () =>
-                                    _showItemActions(context, ref, item),
-                                onTap: () =>
-                                    _showAddSheet(context, ref, initial: item),
-                              ),
+                        ),
+                      ],
+                      if (completed.isNotEmpty) ...[
+                        if (planned.isNotEmpty) const SizedBox(height: 14),
+                        _sectionTitle('Completed Items'),
+                        const SizedBox(height: 10),
+                        ...completed.map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: WishlistItemWidget(
+                              item: item,
+                              onLongPress: () =>
+                                  _showItemActions(context, ref, item),
+                              onTap: () =>
+                                  _showAddSheet(context, ref, initial: item),
                             ),
                           ),
-                        ],
-                      );
-                    },
+                        ),
+                      ],
+                    ],
                   );
                 },
                 error: (error, stack) => Center(
@@ -103,6 +112,13 @@ class WishlistPage extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _sectionTitle(String label) {
+    return Text(
+      label,
+      style: AppTextStyles.sectionHeader.copyWith(fontSize: 17),
     );
   }
 
@@ -157,6 +173,9 @@ class WishlistPage extends ConsumerWidget {
               description: data.description,
               estimatedPrice: data.estimatedPrice,
               estimatedDate: data.estimatedDate,
+              isCompleted: initial?.isCompleted ?? false,
+              realCost: initial?.realCost,
+              completedDate: initial?.completedDate,
             );
             final notifier = ref.read(wishlistProvider.notifier);
             if (data.id == null) {
@@ -195,6 +214,33 @@ class WishlistPage extends ConsumerWidget {
                 },
               ),
               ListTile(
+                leading: Icon(
+                  item.isCompleted ? Symbols.restart_alt : Symbols.task_alt,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  item.isCompleted ? 'Edit Completion' : 'Mark as Completed',
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _showCompletionDialog(context, ref, item);
+                },
+              ),
+              if (item.isCompleted)
+                ListTile(
+                  leading: const Icon(
+                    Symbols.undo,
+                    color: AppColors.textSecondary,
+                  ),
+                  title: const Text('Mark as Pending'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    if (item.id != null) {
+                      ref.read(wishlistProvider.notifier).markPending(item.id!);
+                    }
+                  },
+                ),
+              ListTile(
                 leading: const Icon(Symbols.delete, color: AppColors.expense),
                 title: const Text('Delete'),
                 onTap: () {
@@ -207,6 +253,96 @@ class WishlistPage extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Future<void> _showCompletionDialog(
+    BuildContext context,
+    WidgetRef ref,
+    WishlistItem item,
+  ) async {
+    final currency =
+        ref.read(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
+    final amountController = TextEditingController(
+      text: (item.realCost ?? item.estimatedPrice).toStringAsFixed(2),
+    );
+    DateTime completedDate = item.completedDate ?? DateTime.now();
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final dateLabel = DateFormat('MMM d, yyyy').format(completedDate);
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: Text(
+              item.isCompleted ? 'Edit Completion' : 'Mark as Completed',
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Real Cost',
+                    prefixText: '$currency ',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: completedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                    );
+                    if (picked != null) {
+                      setState(() => completedDate = picked);
+                    }
+                  },
+                  icon: const Icon(Symbols.calendar_month),
+                  label: Text('Completed Date: $dateLabel'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    final parsed = double.tryParse(amountController.text.trim());
+    amountController.dispose();
+
+    if (shouldSave != true) return;
+    if (parsed == null || parsed < 0) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid real cost.')),
+      );
+      return;
+    }
+
+    final id = item.id;
+    if (id == null) return;
+
+    await ref
+        .read(wishlistProvider.notifier)
+        .markCompleted(id: id, realCost: parsed, completedDate: completedDate);
   }
 
   Future<void> _confirmDelete(

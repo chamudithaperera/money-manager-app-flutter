@@ -31,39 +31,52 @@ class ActivityItem extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: _iconBg(transaction.type),
-                    shape: BoxShape.circle,
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _iconBg(transaction.type),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 20, color: color),
                   ),
-                  child: Icon(icon, size: 20, color: color),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      transaction.title,
-                      style: AppTextStyles.transactionTitle,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          transaction.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.transactionTitle,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$dateStr • ${transaction.category}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.transactionSubtitle,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$dateStr • ${transaction.category}',
-                      style: AppTextStyles.transactionSubtitle,
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-            Text(
-              '$prefix${AppConstants.currencySymbol} ${transaction.amount.toStringAsFixed(2)}',
-              style: AppTextStyles.transactionAmount.copyWith(color: color),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                '$prefix${AppConstants.currencySymbol} ${transaction.amount.toStringAsFixed(2)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: AppTextStyles.transactionAmount.copyWith(color: color),
+              ),
             ),
           ],
         ),

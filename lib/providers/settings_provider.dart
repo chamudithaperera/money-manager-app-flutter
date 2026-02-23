@@ -10,11 +10,13 @@ class SettingsState {
     required this.displayName,
     required this.currencySymbol,
     this.profileImagePath,
+    this.monthlyBudget,
   });
 
   final String displayName;
   final String currencySymbol;
   final String? profileImagePath;
+  final double? monthlyBudget;
 
   String get initials {
     if (displayName.isEmpty) return '';
@@ -30,6 +32,8 @@ class SettingsState {
     String? currencySymbol,
     String? profileImagePath,
     bool clearProfileImage = false,
+    double? monthlyBudget,
+    bool clearMonthlyBudget = false,
   }) {
     return SettingsState(
       displayName: displayName ?? this.displayName,
@@ -37,6 +41,9 @@ class SettingsState {
       profileImagePath: clearProfileImage
           ? null
           : profileImagePath ?? this.profileImagePath,
+      monthlyBudget: clearMonthlyBudget
+          ? null
+          : monthlyBudget ?? this.monthlyBudget,
     );
   }
 }
@@ -45,6 +52,7 @@ class SettingsNotifier extends AsyncNotifier<SettingsState> {
   static const _keyDisplayName = 'user_display_name';
   static const _keyCurrency = 'user_currency_symbol';
   static const _keyProfileImage = 'user_profile_image';
+  static const _keyMonthlyBudget = 'user_monthly_budget';
 
   @override
   Future<SettingsState> build() async {
@@ -52,6 +60,7 @@ class SettingsNotifier extends AsyncNotifier<SettingsState> {
     final name = prefs.getString(_keyDisplayName) ?? 'Your Name';
     final currency = prefs.getString(_keyCurrency) ?? 'Rs';
     String? imagePath = prefs.getString(_keyProfileImage);
+    final monthlyBudget = prefs.getDouble(_keyMonthlyBudget);
     final documents = await getApplicationDocumentsDirectory();
 
     if (imagePath != null) {
@@ -75,6 +84,7 @@ class SettingsNotifier extends AsyncNotifier<SettingsState> {
       displayName: name,
       currencySymbol: currency,
       profileImagePath: imagePath,
+      monthlyBudget: monthlyBudget,
     );
   }
 
@@ -115,6 +125,18 @@ class SettingsNotifier extends AsyncNotifier<SettingsState> {
       (await getApplicationDocumentsDirectory()).path,
     );
     state = AsyncValue.data(state.value!.copyWith(clearProfileImage: true));
+  }
+
+  Future<void> updateMonthlyBudget(double? amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (amount == null) {
+      await prefs.remove(_keyMonthlyBudget);
+      state = AsyncValue.data(state.value!.copyWith(clearMonthlyBudget: true));
+      return;
+    }
+
+    await prefs.setDouble(_keyMonthlyBudget, amount);
+    state = AsyncValue.data(state.value!.copyWith(monthlyBudget: amount));
   }
 
   Future<String> _persistProfileImage({

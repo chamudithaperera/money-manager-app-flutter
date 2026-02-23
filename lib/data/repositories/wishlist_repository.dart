@@ -6,7 +6,7 @@ class WishlistRepository {
     final db = await AppDatabase.instance.database;
     final result = await db.query(
       'wishlist_items',
-      orderBy: 'estimated_date ASC',
+      orderBy: 'is_completed ASC, COALESCE(completed_date, estimated_date) ASC',
     );
     return result.map((map) => WishlistItem.fromMap(map)).toList();
   }

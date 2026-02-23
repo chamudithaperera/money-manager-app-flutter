@@ -9,6 +9,8 @@ class WishlistItem {
     required this.estimatedPrice,
     required this.estimatedDate,
     this.isCompleted = false,
+    this.realCost,
+    this.completedDate,
   });
 
   final int? id;
@@ -17,6 +19,8 @@ class WishlistItem {
   final double estimatedPrice;
   final DateTime estimatedDate;
   final bool isCompleted;
+  final double? realCost;
+  final DateTime? completedDate;
 
   WishlistItem copyWith({
     int? id,
@@ -25,6 +29,9 @@ class WishlistItem {
     double? estimatedPrice,
     DateTime? estimatedDate,
     bool? isCompleted,
+    double? realCost,
+    DateTime? completedDate,
+    bool clearCompletionData = false,
   }) {
     return WishlistItem(
       id: id ?? this.id,
@@ -33,6 +40,10 @@ class WishlistItem {
       estimatedPrice: estimatedPrice ?? this.estimatedPrice,
       estimatedDate: estimatedDate ?? this.estimatedDate,
       isCompleted: isCompleted ?? this.isCompleted,
+      realCost: clearCompletionData ? null : realCost ?? this.realCost,
+      completedDate: clearCompletionData
+          ? null
+          : completedDate ?? this.completedDate,
     );
   }
 
@@ -44,6 +55,8 @@ class WishlistItem {
       'estimated_price': estimatedPrice,
       'estimated_date': estimatedDate.toIso8601String(),
       'is_completed': isCompleted ? 1 : 0,
+      'real_cost': realCost,
+      'completed_date': completedDate?.toIso8601String(),
     };
   }
 
@@ -55,6 +68,10 @@ class WishlistItem {
       estimatedPrice: (map['estimated_price'] as num).toDouble(),
       estimatedDate: DateTime.parse(map['estimated_date'] as String),
       isCompleted: (map['is_completed'] as int) == 1,
+      realCost: (map['real_cost'] as num?)?.toDouble(),
+      completedDate: map['completed_date'] == null
+          ? null
+          : DateTime.parse(map['completed_date'] as String),
     );
   }
 }

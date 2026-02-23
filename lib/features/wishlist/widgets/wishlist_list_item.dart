@@ -27,6 +27,13 @@ class WishlistItemWidget extends ConsumerWidget {
         AppConstants.currencySymbol;
 
     final dateStr = _formatDate(item.estimatedDate);
+    final completionDateStr = item.completedDate == null
+        ? null
+        : _formatDate(item.completedDate!);
+    final cost = item.realCost ?? item.estimatedPrice;
+    final amountColor = item.isCompleted
+        ? AppColors.primary
+        : AppColors.textPrimary;
 
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.large),
@@ -44,11 +51,13 @@ class WishlistItemWidget extends ConsumerWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: item.isCompleted
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : AppColors.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Symbols.star,
+                      item.isCompleted ? Symbols.task_alt : Symbols.star,
                       size: 20,
                       color: AppColors.primary,
                     ),
@@ -60,14 +69,25 @@ class WishlistItemWidget extends ConsumerWidget {
                       children: [
                         Text(
                           item.name,
-                          style: AppTextStyles.transactionTitle,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.transactionTitle.copyWith(
+                            decoration: item.isCompleted
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
+                            color: item.isCompleted
+                                ? AppColors.textSecondary
+                                : AppColors.textPrimary,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '$dateStr • ${item.description}',
-                          style: AppTextStyles.transactionSubtitle,
+                          item.isCompleted
+                              ? 'Completed ${completionDateStr ?? dateStr} • ${item.description}'
+                              : '$dateStr • ${item.description}',
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.transactionSubtitle,
                         ),
                       ],
                     ),
@@ -76,11 +96,39 @@ class WishlistItemWidget extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              '$currency ${item.estimatedPrice.toStringAsFixed(2)}',
-              style: AppTextStyles.transactionAmount.copyWith(
-                color: AppColors.textPrimary,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$currency ${cost.toStringAsFixed(2)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.transactionAmount.copyWith(
+                    color: amountColor,
+                  ),
+                ),
+                if (item.isCompleted) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Done',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
