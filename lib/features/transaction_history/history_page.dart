@@ -26,8 +26,9 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final filtered = transactions.where((transaction) {
-      if (activeType == null) return true;
-      return transaction.type == activeType;
+      final typeMatches = activeType == null || transaction.type == activeType;
+      if (!typeMatches) return false;
+      return _matchesDateFilter(transaction.date, activeDate);
     }).toList();
 
     final grouped = _groupByDate(filtered);
@@ -108,6 +109,27 @@ class HistoryPage extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  bool _matchesDateFilter(DateTime date, String filter) {
+    final now = DateTime.now();
+    final dayOnly = DateTime(date.year, date.month, date.day);
+
+    switch (filter) {
+      case 'This Month':
+      case 'Month':
+        return dayOnly.year == now.year && dayOnly.month == now.month;
+      case 'Last 3 Months':
+        final start = DateTime(now.year, now.month - 2, 1);
+        final end = DateTime(now.year, now.month + 1, 1);
+        return !dayOnly.isBefore(start) && dayOnly.isBefore(end);
+      case 'This Year':
+        return dayOnly.year == now.year;
+      case 'All':
+      case 'All Time':
+      default:
+        return true;
+    }
   }
 
   Map<DateTime, List<Transaction>> _groupByDate(List<Transaction> items) {

@@ -35,29 +35,53 @@ class FilterBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            TextButton.icon(
-              onPressed: () => onDateChange(activeDate),
-              icon: const Icon(Symbols.calendar_month, size: 16),
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(activeDate),
-                  const SizedBox(width: 6),
-                  const Icon(Symbols.expand_more, size: 16),
-                ],
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                backgroundColor: const Color(0xFF1A1A1A),
+            PopupMenuButton<String>(
+              initialValue: activeDate,
+              color: AppColors.surface,
+              onSelected: onDateChange,
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'All Time', child: Text('All Time')),
+                PopupMenuItem(value: 'This Month', child: Text('This Month')),
+                PopupMenuItem(
+                  value: 'Last 3 Months',
+                  child: Text('Last 3 Months'),
+                ),
+                PopupMenuItem(value: 'This Year', child: Text('This Year')),
+              ],
+              child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 10,
                 ),
-                shape: RoundedRectangleBorder(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
                   borderRadius: BorderRadius.circular(AppRadius.extraLarge),
-                  side: BorderSide(
+                  border: Border.all(
                     color: AppColors.border.withValues(alpha: 0.5),
                   ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Symbols.calendar_month,
+                      size: 16,
+                      color: AppColors.textPrimary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      activeDate,
+                      style: AppTextStyles.chipLabel.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Symbols.expand_more,
+                      size: 16,
+                      color: AppColors.textPrimary,
+                    ),
+                  ],
                 ),
               ),
             ),
