@@ -189,12 +189,12 @@ class WishlistPage extends ConsumerWidget {
     );
   }
 
-  void _showItemActions(
+  Future<void> _showItemActions(
     BuildContext pageContext,
     WidgetRef ref,
     WishlistItem item,
   ) {
-    showModalBottomSheet<void>(
+    return showModalBottomSheet<_WishlistSheetAction>(
       context: pageContext,
       backgroundColor: AppColors.surfaceVariant,
       shape: const RoundedRectangleBorder(
@@ -208,10 +208,8 @@ class WishlistPage extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Symbols.edit, color: AppColors.primary),
                 title: const Text('Edit'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _showAddSheet(pageContext, ref, initial: item);
-                },
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(_WishlistSheetAction.edit),
               ),
               ListTile(
                 leading: Icon(
@@ -221,10 +219,9 @@ class WishlistPage extends ConsumerWidget {
                 title: Text(
                   item.isCompleted ? 'Edit Completion' : 'Mark as Completed',
                 ),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _showCompletionDialog(pageContext, ref, item);
-                },
+                onTap: () => Navigator.of(
+                  sheetContext,
+                ).pop(_WishlistSheetAction.complete),
               ),
               if (item.isCompleted)
                 ListTile(
@@ -233,26 +230,40 @@ class WishlistPage extends ConsumerWidget {
                     color: AppColors.textSecondary,
                   ),
                   title: const Text('Mark as Pending'),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    if (item.id != null) {
-                      ref.read(wishlistProvider.notifier).markPending(item.id!);
-                    }
-                  },
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_WishlistSheetAction.pending),
                 ),
               ListTile(
                 leading: const Icon(Symbols.delete, color: AppColors.expense),
                 title: const Text('Delete'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _confirmDelete(pageContext, ref, item);
-                },
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(_WishlistSheetAction.delete),
               ),
             ],
           ),
         );
       },
-    );
+    ).then((action) async {
+      if (!pageContext.mounted || action == null) return;
+      switch (action) {
+        case _WishlistSheetAction.edit:
+          _showAddSheet(pageContext, ref, initial: item);
+          break;
+        case _WishlistSheetAction.complete:
+          await _showCompletionDialog(pageContext, ref, item);
+          break;
+        case _WishlistSheetAction.pending:
+          final id = item.id;
+          if (id != null) {
+            await ref.read(wishlistProvider.notifier).markPending(id);
+          }
+          break;
+        case _WishlistSheetAction.delete:
+          await _confirmDelete(pageContext, ref, item);
+          break;
+      }
+    });
   }
 
   Future<void> _showCompletionDialog(
@@ -270,6 +281,7 @@ class WishlistPage extends ConsumerWidget {
 
     final shouldSave = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           final dateLabel = DateFormat('MMM d, yyyy').format(completedDate);
@@ -297,6 +309,7 @@ class WishlistPage extends ConsumerWidget {
                   onPressed: () async {
                     final picked = await showDatePicker(
                       context: context,
+                      useRootNavigator: true,
                       initialDate: completedDate,
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2035),
@@ -374,3 +387,5 @@ class WishlistPage extends ConsumerWidget {
     }
   }
 }
+
+enum _WishlistSheetAction { edit, complete, pending, delete }
