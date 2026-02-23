@@ -33,7 +33,6 @@ class BottomNav extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final showActiveLabel = constraints.maxWidth >= 390;
                 return Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -63,28 +62,24 @@ class BottomNav extends StatelessWidget {
                         label: 'Home',
                         icon: Symbols.home,
                         isActive: activeTab == BottomTab.home,
-                        showActiveLabel: showActiveLabel,
                         onTap: () => onTabChange(BottomTab.home),
                       ),
                       _NavItem(
                         label: 'History',
                         icon: Symbols.history,
                         isActive: activeTab == BottomTab.history,
-                        showActiveLabel: showActiveLabel,
                         onTap: () => onTabChange(BottomTab.history),
                       ),
                       _NavItem(
                         label: 'Wishlist',
                         icon: Symbols.star,
                         isActive: activeTab == BottomTab.wishlist,
-                        showActiveLabel: showActiveLabel,
                         onTap: () => onTabChange(BottomTab.wishlist),
                       ),
                       _NavItem(
                         label: 'Profile',
                         icon: Symbols.person,
                         isActive: activeTab == BottomTab.profile,
-                        showActiveLabel: showActiveLabel,
                         onTap: () => onTabChange(BottomTab.profile),
                       ),
                     ],
@@ -104,14 +99,12 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.isActive,
-    required this.showActiveLabel,
     required this.onTap,
   });
 
   final String label;
   final IconData icon;
   final bool isActive;
-  final bool showActiveLabel;
   final VoidCallback onTap;
 
   @override
@@ -141,36 +134,25 @@ class _NavItem extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isActive ? activeColor : inactiveColor,
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-                child: isActive && showActiveLabel
-                    ? Padding(
-                        key: const ValueKey('active-label'),
-                        padding: const EdgeInsets.only(left: 6),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 56),
-                          child: Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.navLabel.copyWith(
-                              color: activeColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(key: ValueKey('inactive-label')),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: isActive ? activeColor : inactiveColor,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.navLabel.copyWith(
+                      color: isActive ? activeColor : inactiveColor,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
