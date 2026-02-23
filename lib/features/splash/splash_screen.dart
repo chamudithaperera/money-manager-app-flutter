@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'dart:async';
+
 import '../../core/theme/theme.dart';
 
 /// Minimal splash: black/green gradient background and title with a small animation.
@@ -17,6 +19,7 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _fade;
   late Animation<double> _scale;
+  Timer? _completionTimer;
 
   @override
   void initState() {
@@ -34,11 +37,15 @@ class _SplashScreenState extends State<SplashScreen>
       end: 1,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
-    Future.delayed(const Duration(milliseconds: 2000), widget.onComplete);
+    _completionTimer = Timer(const Duration(milliseconds: 2000), () {
+      if (!mounted) return;
+      widget.onComplete();
+    });
   }
 
   @override
   void dispose() {
+    _completionTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

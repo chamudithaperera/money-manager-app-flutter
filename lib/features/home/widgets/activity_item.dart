@@ -69,7 +69,8 @@ class ActivityItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Flexible(
+            SizedBox(
+              width: 132,
               child: Text(
                 '$prefix${AppConstants.currencySymbol} ${transaction.amount.toStringAsFixed(2)}',
                 maxLines: 1,
