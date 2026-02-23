@@ -158,7 +158,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
 
     final netSavings = savings - savingDeduct;
-    final balance = income - expense - netSavings;
+    final balance = income - expense - savings;
     final now = DateTime.now();
     final thisMonthCount = transactions.where((tx) {
       return tx.date.year == now.year && tx.date.month == now.month;

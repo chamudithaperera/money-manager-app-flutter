@@ -750,7 +750,7 @@ class _ReportSummary {
 
   double get netSavings => savings - savingDeduct;
 
-  double get balance => income - expense - netSavings;
+  double get balance => income - expense - savings;
 
   _ReportSummary copyWith({
     double? income,
