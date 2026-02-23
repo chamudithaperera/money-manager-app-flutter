@@ -251,7 +251,7 @@ class WishlistPage extends ConsumerWidget {
           _showAddSheet(pageContext, ref, initial: item);
           break;
         case _WishlistSheetAction.complete:
-          await _showCompletionDialog(pageContext, ref, item);
+          await _showCompletionSheet(pageContext, ref, item);
           break;
         case _WishlistSheetAction.pending:
           final id = item.id;
@@ -266,7 +266,7 @@ class WishlistPage extends ConsumerWidget {
     });
   }
 
-  Future<void> _showCompletionDialog(
+  Future<void> _showCompletionSheet(
     BuildContext context,
     WidgetRef ref,
     WishlistItem item,
@@ -277,86 +277,133 @@ class WishlistPage extends ConsumerWidget {
     final amountController = TextEditingController(
       text: (item.realCost ?? item.estimatedPrice).toStringAsFixed(2),
     );
-    DateTime completedDate = item.completedDate ?? DateTime.now();
+    DateTime selectedDate = item.completedDate ?? DateTime.now();
 
-    final shouldSave = await showDialog<bool>(
-      context: context,
-      useRootNavigator: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          final dateLabel = DateFormat('MMM d, yyyy').format(completedDate);
-          return AlertDialog(
-            backgroundColor: AppColors.surface,
-            title: Text(
-              item.isCompleted ? 'Edit Completion' : 'Mark as Completed',
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: amountController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Real Cost',
-                    prefixText: '$currency ',
+    try {
+      final result = await showModalBottomSheet<_WishlistCompletionResult>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppColors.modalBackground,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.modalTop),
+          ),
+        ),
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (sheetContext, setSheetState) {
+              final dateLabel = DateFormat('MMM d, yyyy').format(selectedDate);
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.isCompleted
+                              ? 'Edit Completion'
+                              : 'Mark as Completed',
+                          style: AppTextStyles.modalTitle,
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: amountController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Real Cost',
+                            prefixText: '$currency ',
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: sheetContext,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2035),
+                            );
+                            if (picked != null && sheetContext.mounted) {
+                              setSheetState(() => selectedDate = picked);
+                            }
+                          },
+                          icon: const Icon(Symbols.calendar_month),
+                          label: Text('Completed Date: $dateLabel'),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () =>
+                                    Navigator.of(sheetContext).pop(),
+                                child: const Text('Cancel'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  final parsed = double.tryParse(
+                                    amountController.text.trim(),
+                                  );
+                                  if (parsed == null || parsed < 0) {
+                                    ScaffoldMessenger.of(
+                                      sheetContext,
+                                    ).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Please enter a valid real cost.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  Navigator.of(sheetContext).pop(
+                                    _WishlistCompletionResult(
+                                      realCost: parsed,
+                                      completedDate: selectedDate,
+                                    ),
+                                  );
+                                },
+                                child: const Text('Save'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      useRootNavigator: true,
-                      initialDate: completedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2035),
-                    );
-                    if (picked != null) {
-                      if (!context.mounted) return;
-                      setState(() => completedDate = picked);
-                    }
-                  },
-                  icon: const Icon(Symbols.calendar_month),
-                  label: Text('Completed Date: $dateLabel'),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Save'),
-              ),
-            ],
+              );
+            },
           );
         },
-      ),
-    );
-
-    final parsed = double.tryParse(amountController.text.trim());
-    amountController.dispose();
-
-    if (shouldSave != true) return;
-    if (parsed == null || parsed < 0) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid real cost.')),
       );
-      return;
+
+      if (result == null) return;
+
+      final id = item.id;
+      if (id == null) return;
+
+      await ref
+          .read(wishlistProvider.notifier)
+          .markCompleted(
+            id: id,
+            realCost: result.realCost,
+            completedDate: result.completedDate,
+          );
+    } finally {
+      amountController.dispose();
     }
-
-    final id = item.id;
-    if (id == null) return;
-
-    await ref
-        .read(wishlistProvider.notifier)
-        .markCompleted(id: id, realCost: parsed, completedDate: completedDate);
   }
 
   Future<void> _confirmDelete(
@@ -389,3 +436,13 @@ class WishlistPage extends ConsumerWidget {
 }
 
 enum _WishlistSheetAction { edit, complete, pending, delete }
+
+class _WishlistCompletionResult {
+  const _WishlistCompletionResult({
+    required this.realCost,
+    required this.completedDate,
+  });
+
+  final double realCost;
+  final DateTime completedDate;
+}
