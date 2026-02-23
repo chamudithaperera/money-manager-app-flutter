@@ -43,7 +43,7 @@ final statsProvider = Provider<HomeStats>((ref) {
   }
 
   final netSavings = savings - savingDeduct;
-  final balance = income - expenses - savings;
+  final balance = income - expenses - netSavings;
 
   return HomeStats(
     income: income,

@@ -190,17 +190,17 @@ class WishlistPage extends ConsumerWidget {
   }
 
   void _showItemActions(
-    BuildContext context,
+    BuildContext pageContext,
     WidgetRef ref,
     WishlistItem item,
   ) {
     showModalBottomSheet<void>(
-      context: context,
+      context: pageContext,
       backgroundColor: AppColors.surfaceVariant,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -209,8 +209,8 @@ class WishlistPage extends ConsumerWidget {
                 leading: const Icon(Symbols.edit, color: AppColors.primary),
                 title: const Text('Edit'),
                 onTap: () {
-                  Navigator.of(context).pop();
-                  _showAddSheet(context, ref, initial: item);
+                  Navigator.of(sheetContext).pop();
+                  _showAddSheet(pageContext, ref, initial: item);
                 },
               ),
               ListTile(
@@ -222,8 +222,8 @@ class WishlistPage extends ConsumerWidget {
                   item.isCompleted ? 'Edit Completion' : 'Mark as Completed',
                 ),
                 onTap: () {
-                  Navigator.of(context).pop();
-                  _showCompletionDialog(context, ref, item);
+                  Navigator.of(sheetContext).pop();
+                  _showCompletionDialog(pageContext, ref, item);
                 },
               ),
               if (item.isCompleted)
@@ -234,7 +234,7 @@ class WishlistPage extends ConsumerWidget {
                   ),
                   title: const Text('Mark as Pending'),
                   onTap: () {
-                    Navigator.of(context).pop();
+                    Navigator.of(sheetContext).pop();
                     if (item.id != null) {
                       ref.read(wishlistProvider.notifier).markPending(item.id!);
                     }
@@ -244,8 +244,8 @@ class WishlistPage extends ConsumerWidget {
                 leading: const Icon(Symbols.delete, color: AppColors.expense),
                 title: const Text('Delete'),
                 onTap: () {
-                  Navigator.of(context).pop();
-                  _confirmDelete(context, ref, item);
+                  Navigator.of(sheetContext).pop();
+                  _confirmDelete(pageContext, ref, item);
                 },
               ),
             ],
@@ -302,6 +302,7 @@ class WishlistPage extends ConsumerWidget {
                       lastDate: DateTime(2035),
                     );
                     if (picked != null) {
+                      if (!context.mounted) return;
                       setState(() => completedDate = picked);
                     }
                   },
