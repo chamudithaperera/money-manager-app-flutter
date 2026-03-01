@@ -66,6 +66,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   if (_activeTab == BottomTab.home) {
                     return _buildHome(
                       items: items,
+                      transfers: transfers,
                       walletNameMap: walletNameMap,
                       totalBalance: totalBalance,
                       income: regularIncome,
@@ -107,13 +108,17 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildHome({
     required List<Transaction> items,
+    required List<WalletTransfer> transfers,
     required Map<int, String> walletNameMap,
     required double totalBalance,
     required double income,
     required double expense,
     required double savings,
   }) {
-    final recentTransactions = items.take(5).toList();
+    final recentActivities = <_HomeActivityEntry>[
+      ...items.map(_HomeActivityEntry.transaction),
+      ...transfers.map(_HomeActivityEntry.transfer),
+    ]..sort((a, b) => b.date.compareTo(a.date));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
@@ -170,13 +175,20 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SizedBox(height: 8),
           Column(
             children: [
-              for (final tx in recentTransactions)
-                ActivityItem(
-                  transaction: tx,
-                  walletName: walletNameMap[tx.walletId],
-                  onTap: () => _showTransactionDetails(tx),
-                  onLongPress: () => _showTransactionActions(tx),
-                ),
+              for (final item in recentActivities.take(5))
+                if (item.transaction != null)
+                  ActivityItem(
+                    transaction: item.transaction!,
+                    walletName: walletNameMap[item.transaction!.walletId],
+                    onTap: () => _showTransactionDetails(item.transaction!),
+                    onLongPress: () =>
+                        _showTransactionActions(item.transaction!),
+                  )
+                else
+                  _HomeTransferActivityItem(
+                    transfer: item.transfer!,
+                    walletNameMap: walletNameMap,
+                  ),
             ],
           ),
         ],
@@ -671,6 +683,129 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (confirmed == true) {
       await ref.read(transactionsProvider.notifier).deleteTransaction(id);
     }
+  }
+}
+
+class _HomeActivityEntry {
+  const _HomeActivityEntry._({
+    required this.date,
+    this.transaction,
+    this.transfer,
+  });
+
+  factory _HomeActivityEntry.transaction(Transaction transaction) {
+    return _HomeActivityEntry._(
+      date: transaction.date,
+      transaction: transaction,
+    );
+  }
+
+  factory _HomeActivityEntry.transfer(WalletTransfer transfer) {
+    return _HomeActivityEntry._(date: transfer.date, transfer: transfer);
+  }
+
+  final DateTime date;
+  final Transaction? transaction;
+  final WalletTransfer? transfer;
+}
+
+class _HomeTransferActivityItem extends StatelessWidget {
+  const _HomeTransferActivityItem({
+    required this.transfer,
+    required this.walletNameMap,
+  });
+
+  final WalletTransfer transfer;
+  final Map<int, String> walletNameMap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fromWalletName =
+        walletNameMap[transfer.fromWalletId] ??
+        'Wallet #${transfer.fromWalletId}';
+    final toWalletName =
+        walletNameMap[transfer.toWalletId] ?? 'Wallet #${transfer.toWalletId}';
+    final dateStr = _formatDate(transfer.date);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.savings.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Symbols.swap_horiz,
+                    size: 20,
+                    color: AppColors.savings,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Wallet Transfer',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.transactionTitle,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$dateStr • $fromWalletName → $toWalletName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.transactionSubtitle,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 132,
+            child: Text(
+              '${AppConstants.currencySymbol} ${transfer.amount.toStringAsFixed(2)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: AppTextStyles.transactionAmount.copyWith(
+                color: AppColors.savings,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final month = months[date.month - 1];
+    return '$month ${date.day}';
   }
 }
 
