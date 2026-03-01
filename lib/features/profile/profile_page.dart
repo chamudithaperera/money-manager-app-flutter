@@ -73,18 +73,41 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildProfileDetailsCard(settings, currency, stats),
-          const SizedBox(height: 24),
-          Text('Quick Overview', style: AppTextStyles.sectionHeader),
+          _buildProfileDetailsCard(
+            settings,
+            currency,
+            stats,
+            thisMonthExpense: thisMonthExpense,
+          ),
+          const SizedBox(height: 22),
+          Text('Financial Snapshot', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 12),
           _buildSummaryTiles(stats, currency),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _detailTile(
+                  title: 'Avg Transaction',
+                  value: '$currency${averageTransaction.toStringAsFixed(0)}',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _detailTile(
+                  title: 'Top Expense',
+                  value: topExpenseCategory,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           _buildBudgetCard(
             currency: currency,
             monthlyBudget: monthlyBudget,
             thisMonthExpense: thisMonthExpense,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           Text('Smart Insights', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 12),
           _buildInsightGrid(
@@ -94,23 +117,47 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             topExpenseCategory: topExpenseCategory,
             thisMonthExpense: thisMonthExpense,
           ),
-          const SizedBox(height: 24),
-          Text('Profile Options', style: AppTextStyles.sectionHeader),
+          const SizedBox(height: 22),
+          Text('Quick Actions', style: AppTextStyles.sectionHeader),
           const SizedBox(height: 12),
-          _buildSettingsOption(
-            icon: Symbols.person,
-            title: 'Edit Profile',
-            subtitle: 'Name and profile photo',
-            onTap: _showEditProfileDialog,
+          _buildActionGrid(
+            actions: [
+              _ActionItem(
+                icon: Symbols.person,
+                title: 'Edit Profile',
+                subtitle: 'Name and profile photo',
+                onTap: _showEditProfileDialog,
+              ),
+              _ActionItem(
+                icon: Symbols.analytics,
+                title: 'Reports',
+                subtitle: 'View analysis and export PDF',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          AnalysisReportPage(transactions: widget.transactions),
+                    ),
+                  );
+                },
+              ),
+              _ActionItem(
+                icon: Symbols.download,
+                title: 'Export CSV',
+                subtitle: 'Download transaction history',
+                onTap: _exportTransactionsCsv,
+              ),
+              _ActionItem(
+                icon: Symbols.currency_exchange,
+                title: 'Currency',
+                subtitle: 'Change symbol and display',
+                onTap: _showCurrencyPicker,
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          _buildSettingsOption(
-            icon: Symbols.currency_exchange,
-            title: 'Change Currency',
-            subtitle: 'Update how values are shown',
-            onTap: _showCurrencyPicker,
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 22),
+          Text('Settings', style: AppTextStyles.sectionHeader),
+          const SizedBox(height: 12),
           _buildSettingsOption(
             icon: Symbols.target,
             title: 'Monthly Budget',
@@ -118,27 +165,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ? 'Set your monthly spending target'
                 : 'Current budget: $currency${monthlyBudget.toStringAsFixed(0)}',
             onTap: () => _showBudgetDialog(currency, monthlyBudget),
-          ),
-          const SizedBox(height: 10),
-          _buildSettingsOption(
-            icon: Symbols.analytics,
-            title: 'Analysis & Reports',
-            subtitle: 'Filter details and download PDF report',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      AnalysisReportPage(transactions: widget.transactions),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          _buildSettingsOption(
-            icon: Symbols.download,
-            title: 'Export Data (CSV)',
-            subtitle: 'Download all transaction details',
-            onTap: _exportTransactionsCsv,
           ),
           const SizedBox(height: 10),
           _buildSettingsOption(
@@ -195,16 +221,21 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget _buildProfileDetailsCard(
     SettingsState? settings,
     String currency,
-    _ProfileStats stats,
-  ) {
+    _ProfileStats stats, {
+    required double thisMonthExpense,
+  }) {
     final displayName = settings?.displayName ?? AppConstants.userDisplayName;
     final initials = settings?.initials ?? AppConstants.userInitials;
     final imagePath = settings?.profileImagePath;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        gradient: const LinearGradient(
+          colors: [Color(0xFF252525), Color(0xFF1D1D1D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border.withValues(alpha: 0.35)),
       ),
@@ -212,6 +243,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildAvatar(imagePath, initials, 70),
               const SizedBox(width: 14),
@@ -246,6 +278,23 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              FilledButton.tonal(
+                onPressed: _showEditProfileDialog,
+                style: FilledButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  textStyle: AppTextStyles.caption.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                child: const Text('Edit'),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -267,11 +316,41 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               const SizedBox(width: 8),
               Expanded(
                 child: _detailTile(
-                  title: 'Balance',
-                  value: '$currency${stats.balance.toStringAsFixed(0)}',
+                  title: 'Spend This Month',
+                  value: '$currency${thisMonthExpense.toStringAsFixed(0)}',
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.background.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(AppRadius.medium),
+              border: Border.all(
+                color: AppColors.border.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Spendable Balance',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  '$currency${stats.balance.toStringAsFixed(2)}',
+                  style: AppTextStyles.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -474,6 +553,74 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
+  Widget _buildActionGrid({required List<_ActionItem> actions}) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: actions.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 1.22,
+      ),
+      itemBuilder: (context, index) {
+        final action = actions[index];
+        return InkWell(
+          onTap: action.onTap,
+          borderRadius: BorderRadius.circular(AppRadius.large),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.large),
+              border: Border.all(
+                color: AppColors.border.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(action.icon, size: 18, color: AppColors.primary),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      action.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      action.subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _insightTile({
     required IconData icon,
     required String title,
@@ -555,6 +702,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Widget _detailTile({required String title, required String value}) {
     return Container(
+      height: 74,
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
         color: AppColors.backgroundElevated,
@@ -565,6 +713,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         children: [
           Text(
             title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTextStyles.caption.copyWith(
               color: AppColors.textTertiary,
             ),
@@ -965,6 +1115,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       ),
     );
   }
+}
+
+class _ActionItem {
+  const _ActionItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 }
 
 class _ProfileStats {
