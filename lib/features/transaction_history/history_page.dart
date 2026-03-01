@@ -304,7 +304,7 @@ class _TransferActivityItem extends StatelessWidget {
     final amountPrefix = switch (transferState) {
       _SelectedWalletTransferState.incoming => '+',
       _SelectedWalletTransferState.outgoing => '-',
-      _SelectedWalletTransferState.global => '↔',
+      _SelectedWalletTransferState.global => '',
     };
 
     return Padding(
