@@ -12,12 +12,18 @@ class FilterBar extends StatelessWidget {
     required this.onTypeChange,
     required this.activeDate,
     required this.onDateChange,
+    required this.activeWalletId,
+    required this.onWalletChange,
+    required this.walletNameMap,
   });
 
   final TransactionType? activeType;
   final ValueChanged<TransactionType?> onTypeChange;
   final String activeDate;
   final ValueChanged<String> onDateChange;
+  final int? activeWalletId;
+  final ValueChanged<int?> onWalletChange;
+  final Map<int, String> walletNameMap;
 
   @override
   Widget build(BuildContext context) {
@@ -27,66 +33,130 @@ class FilterBar extends StatelessWidget {
       const _TypeChip(label: 'Expense', type: TransactionType.expense),
     ];
 
+    final walletItems = walletNameMap.entries.toList()
+      ..sort((a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()));
+    final activeWalletLabel = activeWalletId == null
+        ? 'All Wallets'
+        : (walletNameMap[activeWalletId] ?? 'Wallet #$activeWalletId');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            PopupMenuButton<String>(
-              initialValue: activeDate,
-              color: AppColors.surface,
-              onSelected: onDateChange,
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'All Time', child: Text('All Time')),
-                PopupMenuItem(value: 'This Month', child: Text('This Month')),
-                PopupMenuItem(
-                  value: 'Last 3 Months',
-                  child: Text('Last 3 Months'),
-                ),
-                PopupMenuItem(value: 'This Year', child: Text('This Year')),
-              ],
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
-                  borderRadius: BorderRadius.circular(AppRadius.extraLarge),
-                  border: Border.all(
-                    color: AppColors.border.withValues(alpha: 0.5),
+            Expanded(
+              child: PopupMenuButton<String>(
+                initialValue: activeDate,
+                color: AppColors.surface,
+                onSelected: onDateChange,
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'All Time', child: Text('All Time')),
+                  PopupMenuItem(value: 'This Month', child: Text('This Month')),
+                  PopupMenuItem(
+                    value: 'Last 3 Months',
+                    child: Text('Last 3 Months'),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Symbols.calendar_month,
-                      size: 16,
-                      color: AppColors.textPrimary,
+                  PopupMenuItem(value: 'This Year', child: Text('This Year')),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.5),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      activeDate,
-                      style: AppTextStyles.chipLabel.copyWith(
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Symbols.calendar_month,
+                        size: 16,
                         color: AppColors.textPrimary,
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Symbols.expand_more,
-                      size: 16,
-                      color: AppColors.textPrimary,
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          activeDate,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.chipLabel.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Symbols.expand_more,
+                        size: 16,
+                        color: AppColors.textPrimary,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            IconButton(
-              onPressed: () {},
-              icon: Icon(Symbols.filter_alt),
-              color: AppColors.textTertiary,
+            const SizedBox(width: 10),
+            Expanded(
+              child: PopupMenuButton<int?>(
+                initialValue: activeWalletId,
+                color: AppColors.surface,
+                onSelected: onWalletChange,
+                itemBuilder: (context) => [
+                  const PopupMenuItem<int?>(
+                    value: null,
+                    child: Text('All Wallets'),
+                  ),
+                  ...walletItems.map(
+                    (entry) => PopupMenuItem<int?>(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
+                  ),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Symbols.account_balance_wallet,
+                        size: 16,
+                        color: AppColors.textPrimary,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          activeWalletLabel,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.chipLabel.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Symbols.expand_more,
+                        size: 16,
+                        color: AppColors.textPrimary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),

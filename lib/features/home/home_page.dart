@@ -32,6 +32,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   BottomTab _activeTab = BottomTab.home;
   TransactionType? _filterType;
   String _dateFilter = 'All Time';
+  int? _walletFilterId;
 
   @override
   Widget build(BuildContext context) {
@@ -297,6 +298,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       onTypeChange: (type) => setState(() => _filterType = type),
       activeDate: _dateFilter,
       onDateChange: (date) => setState(() => _dateFilter = date),
+      activeWalletId: _walletFilterId,
+      onWalletChange: (walletId) => setState(() => _walletFilterId = walletId),
       onTransactionTap: _showTransactionDetails,
       onTransactionLongPress: _showTransactionActions,
     );

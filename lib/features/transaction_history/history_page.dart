@@ -14,6 +14,8 @@ class HistoryPage extends StatelessWidget {
     required this.onTypeChange,
     required this.activeDate,
     required this.onDateChange,
+    required this.activeWalletId,
+    required this.onWalletChange,
     required this.onTransactionTap,
     required this.onTransactionLongPress,
   });
@@ -24,6 +26,8 @@ class HistoryPage extends StatelessWidget {
   final ValueChanged<TransactionType?> onTypeChange;
   final String activeDate;
   final ValueChanged<String> onDateChange;
+  final int? activeWalletId;
+  final ValueChanged<int?> onWalletChange;
   final ValueChanged<Transaction> onTransactionTap;
   final ValueChanged<Transaction> onTransactionLongPress;
 
@@ -32,6 +36,9 @@ class HistoryPage extends StatelessWidget {
     final filtered = transactions.where((transaction) {
       final typeMatches = activeType == null || transaction.type == activeType;
       if (!typeMatches) return false;
+      final walletMatches =
+          activeWalletId == null || transaction.walletId == activeWalletId;
+      if (!walletMatches) return false;
       return _matchesDateFilter(transaction.date, activeDate);
     }).toList();
 
@@ -54,6 +61,9 @@ class HistoryPage extends StatelessWidget {
                   onTypeChange: onTypeChange,
                   activeDate: activeDate,
                   onDateChange: onDateChange,
+                  activeWalletId: activeWalletId,
+                  onWalletChange: onWalletChange,
+                  walletNameMap: walletNameMap,
                 ),
                 const SizedBox(height: 16),
               ],
