@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
+import '../../features/wallets/models/wallet_transfer.dart';
 import '../../features/wallets/providers/wallet_provider.dart';
 import '../../features/wallets/providers/wallet_transfer_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -37,6 +38,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionsProvider);
+    final transfers = ref.watch(walletTransfersProvider).value ?? const [];
     final walletNameMap = ref.watch(walletNameMapProvider);
     final regularSummaries = ref.watch(regularWalletSummariesProvider);
 
@@ -72,7 +74,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     );
                   }
                   if (_activeTab == BottomTab.history) {
-                    return _buildHistory(items, walletNameMap);
+                    return _buildHistory(items, transfers, walletNameMap);
                   }
                   if (_activeTab == BottomTab.wallets) {
                     return _buildWallets();
@@ -289,10 +291,12 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildHistory(
     List<Transaction> items,
+    List<WalletTransfer> transfers,
     Map<int, String> walletNameMap,
   ) {
     return HistoryPage(
       transactions: items,
+      transfers: transfers,
       walletNameMap: walletNameMap,
       activeType: _filterType,
       onTypeChange: (type) => setState(() => _filterType = type),
