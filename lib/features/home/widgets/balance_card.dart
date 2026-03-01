@@ -32,7 +32,7 @@ class _BalanceCardState extends State<BalanceCard> {
   Widget build(BuildContext context) {
     final rawProgress = widget.income <= 0
         ? 0.0
-        : (widget.income - widget.expenses - widget.savings) / widget.income;
+        : (widget.income - widget.expenses) / widget.income;
     final progress = rawProgress.clamp(0.0, 1.0);
     final percentLabel = '${(progress * 100).toStringAsFixed(0)}% of income';
     final percentColor = widget.balance >= 0

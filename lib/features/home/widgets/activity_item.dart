@@ -27,8 +27,6 @@ class ActivityItem extends StatelessWidget {
     final prefix = switch (transaction.type) {
       TransactionType.income => '+',
       TransactionType.expense => '-',
-      TransactionType.savingDeduct => '-',
-      TransactionType.savings => '',
     };
     final dateStr = _formatDate(transaction.date);
     final walletLabel = walletName ?? 'Wallet #${transaction.walletId}';
@@ -136,10 +134,6 @@ class ActivityItem extends StatelessWidget {
         return AppColors.primary;
       case TransactionType.expense:
         return AppColors.textPrimary;
-      case TransactionType.savings:
-        return AppColors.savings;
-      case TransactionType.savingDeduct:
-        return Colors.orange;
     }
   }
 
@@ -149,10 +143,6 @@ class ActivityItem extends StatelessWidget {
         return AppColors.primary.withValues(alpha: 0.1);
       case TransactionType.expense:
         return AppColors.expense.withValues(alpha: 0.1);
-      case TransactionType.savings:
-        return AppColors.savings.withValues(alpha: 0.1);
-      case TransactionType.savingDeduct:
-        return Colors.orange.withValues(alpha: 0.12);
     }
   }
 }

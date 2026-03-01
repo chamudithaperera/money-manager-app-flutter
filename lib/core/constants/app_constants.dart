@@ -8,6 +8,15 @@ abstract final class AppConstants {
   /// Default wallet name used when no custom wallets exist.
   static const String defaultWalletName = 'Wallet 01';
 
+  /// Built-in saving wallet name.
+  static const String savingWalletName = 'saving wallet';
+
+  /// Wallet kind value for regular wallets.
+  static const String walletKindRegular = 'regular';
+
+  /// Wallet kind value for built-in saving wallet.
+  static const String walletKindSaving = 'saving';
+
   /// User display name shown in the app.
   static const String userDisplayName = 'Chamuditha Perera';
 

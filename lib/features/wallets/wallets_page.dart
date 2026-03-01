@@ -170,26 +170,47 @@ class WalletsPage extends ConsumerWidget {
                           ),
                         ),
                       ],
+                      if (wallet.isSavingWallet) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.savings.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            'Built-in Saving',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.savings,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                PopupMenuButton<String>(
-                  color: AppColors.surfaceVariant,
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'rename':
-                        _showRenameWalletDialog(context, ref, wallet);
-                        break;
-                      case 'delete':
-                        _confirmDeleteWallet(context, ref, wallet);
-                        break;
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'rename', child: Text('Rename')),
-                    PopupMenuItem(value: 'delete', child: Text('Delete')),
-                  ],
-                ),
+                if (!wallet.isSavingWallet)
+                  PopupMenuButton<String>(
+                    color: AppColors.surfaceVariant,
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'rename':
+                          _showRenameWalletDialog(context, ref, wallet);
+                          break;
+                        case 'delete':
+                          _confirmDeleteWallet(context, ref, wallet);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'rename', child: Text('Rename')),
+                      PopupMenuItem(value: 'delete', child: Text('Delete')),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 8),

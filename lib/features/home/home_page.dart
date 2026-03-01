@@ -36,8 +36,19 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionsProvider);
-    final stats = ref.watch(statsProvider);
     final walletNameMap = ref.watch(walletNameMapProvider);
+    final regularSummaries = ref.watch(regularWalletSummariesProvider);
+
+    final regularIncome = regularSummaries.fold<double>(
+      0,
+      (sum, item) => sum + item.income,
+    );
+    final regularExpense = regularSummaries.fold<double>(
+      0,
+      (sum, item) => sum + item.expense,
+    );
+    final savingsBalance = ref.watch(savingsBalanceProvider);
+    final totalBalance = ref.watch(totalRegularWalletBalanceProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -50,7 +61,14 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: transactionsAsync.when(
                 data: (items) {
                   if (_activeTab == BottomTab.home) {
-                    return _buildHome(items, stats, walletNameMap);
+                    return _buildHome(
+                      items: items,
+                      walletNameMap: walletNameMap,
+                      totalBalance: totalBalance,
+                      income: regularIncome,
+                      expense: regularExpense,
+                      savings: savingsBalance,
+                    );
                   }
                   if (_activeTab == BottomTab.history) {
                     return _buildHistory(items, walletNameMap);
@@ -84,12 +102,16 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildHome(
-    List<Transaction> items,
-    HomeStats stats,
-    Map<int, String> walletNameMap,
-  ) {
+  Widget _buildHome({
+    required List<Transaction> items,
+    required Map<int, String> walletNameMap,
+    required double totalBalance,
+    required double income,
+    required double expense,
+    required double savings,
+  }) {
     final recentTransactions = items.take(5).toList();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
       child: Column(
@@ -98,10 +120,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           _buildHeader(),
           const SizedBox(height: 24),
           BalanceCard(
-            balance: stats.balance,
-            income: stats.income,
-            expenses: stats.expenses,
-            savings: stats.savings,
+            balance: totalBalance,
+            income: income,
+            expenses: expense,
+            savings: savings,
             onTap: _showWalletBalances,
           ),
           const SizedBox(height: 24),
@@ -109,22 +131,31 @@ class _HomePageState extends ConsumerState<HomePage> {
             children: [
               Expanded(
                 child: StatCard(
-                  type: TransactionType.income,
-                  amount: stats.income,
+                  label: 'Income',
+                  amount: income,
+                  icon: Symbols.trending_up,
+                  color: AppColors.primary,
+                  bgColor: const Color(0x1A28C76F),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: StatCard(
-                  type: TransactionType.expense,
-                  amount: stats.expenses,
+                  label: 'Expenses',
+                  amount: expense,
+                  icon: Symbols.trending_down,
+                  color: AppColors.expense,
+                  bgColor: const Color(0x1AEA5455),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: StatCard(
-                  type: TransactionType.savings,
-                  amount: stats.savings,
+                  label: 'Savings',
+                  amount: savings,
+                  icon: Symbols.savings,
+                  color: AppColors.savings,
+                  bgColor: const Color(0x1A8B5CF6),
                 ),
               ),
             ],
@@ -362,8 +393,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final amountPrefix = switch (transaction.type) {
       TransactionType.income => '+',
       TransactionType.expense => '-',
-      TransactionType.savingDeduct => '-',
-      TransactionType.savings => '',
     };
 
     final action = await showModalBottomSheet<_TransactionDetailAction>(
@@ -442,8 +471,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     return switch (type) {
       TransactionType.income => 'Income',
       TransactionType.expense => 'Expense',
-      TransactionType.savings => 'Savings',
-      TransactionType.savingDeduct => 'Saving Deduct',
     };
   }
 
@@ -508,20 +535,20 @@ class _HomePageState extends ConsumerState<HomePage> {
     await ref.read(walletTransfersProvider.future);
     if (!mounted) return;
 
-    final walletSummaries = ref.read(walletSummariesProvider);
+    final regularWalletSummaries = ref.read(regularWalletSummariesProvider);
+    final savingWalletSummary = ref.read(savingWalletSummaryProvider);
     final currency =
         ref.read(settingsProvider).asData?.value.currencySymbol ??
         AppConstants.currencySymbol;
 
-    if (walletSummaries.isEmpty) {
-      if (!mounted) return;
+    if (regularWalletSummaries.isEmpty && savingWalletSummary == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No wallets available yet.')),
       );
       return;
     }
 
-    final total = walletSummaries.fold<double>(
+    final total = regularWalletSummaries.fold<double>(
       0,
       (sum, item) => sum + item.balance,
     );
@@ -542,7 +569,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               children: [
                 Text('Wallet Balances', style: AppTextStyles.sectionHeader),
                 const SizedBox(height: 10),
-                ...walletSummaries.map((summary) {
+                ...regularWalletSummaries.map((summary) {
                   final name = summary.wallet.name;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -563,6 +590,30 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   );
                 }),
+                if (savingWalletSummary != null) ...[
+                  const Divider(height: 22, color: AppColors.border),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${savingWalletSummary.wallet.name} (Built-in Saving)',
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.savings,
+                          ),
+                        ),
+                        Text(
+                          '$currency ${savingWalletSummary.balance.toStringAsFixed(2)}',
+                          style: AppTextStyles.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.savings,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const Divider(height: 22, color: AppColors.border),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

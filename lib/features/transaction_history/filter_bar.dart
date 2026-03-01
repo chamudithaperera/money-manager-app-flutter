@@ -25,8 +25,6 @@ class FilterBar extends StatelessWidget {
       const _TypeChip(label: 'All', type: null),
       const _TypeChip(label: 'Income', type: TransactionType.income),
       const _TypeChip(label: 'Expense', type: TransactionType.expense),
-      const _TypeChip(label: 'Savings', type: TransactionType.savings),
-      const _TypeChip(label: 'Deduct', type: TransactionType.savingDeduct),
     ];
 
     return Column(

@@ -22,7 +22,7 @@ class AppDatabase {
 
     return openDatabase(
       dbPath,
-      version: 3,
+      version: 4,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -33,10 +33,12 @@ class AppDatabase {
         await _createWishlistTable(db);
 
         await _createWalletDefaultIndex(db);
+        await _createSavingWalletIndex(db);
         await _createTransactionWalletIndex(db);
         await _createWalletTransferIndexes(db);
 
-        await _ensureDefaultWallet(db);
+        final walletIds = await _ensureBuiltInWallets(db);
+        await _migrateLegacySavingsTransactions(db, walletIds.savingWalletId);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -47,12 +49,21 @@ class AppDatabase {
           await _createWalletsTable(db);
           await _createWalletTransfersTable(db);
           await _createWalletDefaultIndex(db);
+          await _createSavingWalletIndex(db);
 
-          final defaultWalletId = await _ensureDefaultWallet(db);
-          await _ensureTransactionsWalletSchema(db, defaultWalletId);
+          final walletIds = await _ensureBuiltInWallets(db);
+          await _ensureTransactionsWalletSchema(db, walletIds.defaultWalletId);
 
           await _createTransactionWalletIndex(db);
           await _createWalletTransferIndexes(db);
+        }
+
+        if (oldVersion < 4) {
+          await _ensureWalletKindColumn(db);
+          await _createSavingWalletIndex(db);
+
+          final walletIds = await _ensureBuiltInWallets(db);
+          await _migrateLegacySavingsTransactions(db, walletIds.savingWalletId);
         }
 
         await _ensureWishlistColumns(db);
@@ -66,14 +77,19 @@ class AppDatabase {
 
   Future<void> _ensureWalletScaffold(Database db) async {
     await _createWalletsTable(db);
+    await _ensureWalletKindColumn(db);
+
     await _createWalletTransfersTable(db);
     await _createWalletDefaultIndex(db);
+    await _createSavingWalletIndex(db);
 
-    final defaultWalletId = await _ensureDefaultWallet(db);
-    await _ensureTransactionsWalletSchema(db, defaultWalletId);
+    final walletIds = await _ensureBuiltInWallets(db);
+    await _ensureTransactionsWalletSchema(db, walletIds.defaultWalletId);
 
     await _createTransactionWalletIndex(db);
     await _createWalletTransferIndexes(db);
+
+    await _migrateLegacySavingsTransactions(db, walletIds.savingWalletId);
   }
 
   Future<void> _createTransactionsTable(DatabaseExecutor db) async {
@@ -103,14 +119,39 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         is_default INTEGER NOT NULL DEFAULT 0,
+        wallet_kind TEXT NOT NULL DEFAULT '${AppConstants.walletKindRegular}',
         created_at TEXT NOT NULL
       )
     ''');
   }
 
+  Future<void> _ensureWalletKindColumn(Database db) async {
+    final tableInfo = await db.rawQuery('PRAGMA table_info(wallets)');
+    if (tableInfo.isEmpty) return;
+
+    final columns = tableInfo.map((row) => row['name'] as String).toSet();
+
+    if (!columns.contains('wallet_kind')) {
+      await db.execute(
+        "ALTER TABLE wallets ADD COLUMN wallet_kind TEXT NOT NULL DEFAULT '${AppConstants.walletKindRegular}'",
+      );
+    }
+
+    await db.rawUpdate(
+      "UPDATE wallets SET wallet_kind = ? WHERE wallet_kind IS NULL OR TRIM(wallet_kind) = ''",
+      [AppConstants.walletKindRegular],
+    );
+  }
+
   Future<void> _createWalletDefaultIndex(DatabaseExecutor db) async {
     await db.execute(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_wallets_single_default ON wallets(is_default) WHERE is_default = 1',
+    );
+  }
+
+  Future<void> _createSavingWalletIndex(DatabaseExecutor db) async {
+    await db.execute(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_wallets_single_saving ON wallets(wallet_kind) WHERE wallet_kind = '${AppConstants.walletKindSaving}'",
     );
   }
 
@@ -151,6 +192,100 @@ class AppDatabase {
         completed_date TEXT
       )
     ''');
+  }
+
+  Future<_BuiltInWalletIds> _ensureBuiltInWallets(DatabaseExecutor db) async {
+    await db.rawUpdate(
+      'UPDATE wallets SET wallet_kind = ? WHERE wallet_kind IS NULL OR TRIM(wallet_kind) = ""',
+      [AppConstants.walletKindRegular],
+    );
+
+    int savingWalletId;
+    final savingRows = await db.rawQuery(
+      'SELECT id FROM wallets WHERE wallet_kind = ? ORDER BY id ASC',
+      [AppConstants.walletKindSaving],
+    );
+
+    if (savingRows.isEmpty) {
+      final adoptedRows = await db.rawQuery(
+        'SELECT id FROM wallets WHERE LOWER(name) = ? ORDER BY id ASC LIMIT 1',
+        [AppConstants.savingWalletName.toLowerCase()],
+      );
+
+      if (adoptedRows.isNotEmpty) {
+        savingWalletId = (adoptedRows.first['id'] as num).toInt();
+        await db.rawUpdate('UPDATE wallets SET wallet_kind = ? WHERE id = ?', [
+          AppConstants.walletKindSaving,
+          savingWalletId,
+        ]);
+      } else {
+        savingWalletId = await db.rawInsert(
+          'INSERT INTO wallets (name, is_default, wallet_kind, created_at) VALUES (?, 0, ?, ?)',
+          [
+            AppConstants.savingWalletName,
+            AppConstants.walletKindSaving,
+            DateTime.now().toIso8601String(),
+          ],
+        );
+      }
+    } else {
+      savingWalletId = (savingRows.first['id'] as num).toInt();
+      if (savingRows.length > 1) {
+        final duplicateIds = savingRows
+            .skip(1)
+            .map((row) => (row['id'] as num).toInt())
+            .toList();
+
+        for (final id in duplicateIds) {
+          await db.rawUpdate(
+            'UPDATE wallets SET wallet_kind = ? WHERE id = ?',
+            [AppConstants.walletKindRegular, id],
+          );
+        }
+      }
+    }
+
+    await db.rawUpdate('UPDATE wallets SET is_default = 0 WHERE id = ?', [
+      savingWalletId,
+    ]);
+
+    int defaultWalletId;
+    final defaultRows = await db.rawQuery(
+      'SELECT id FROM wallets WHERE is_default = 1 AND wallet_kind != ? ORDER BY id ASC LIMIT 1',
+      [AppConstants.walletKindSaving],
+    );
+
+    if (defaultRows.isNotEmpty) {
+      defaultWalletId = (defaultRows.first['id'] as num).toInt();
+    } else {
+      final regularRows = await db.rawQuery(
+        'SELECT id FROM wallets WHERE wallet_kind != ? ORDER BY id ASC LIMIT 1',
+        [AppConstants.walletKindSaving],
+      );
+
+      if (regularRows.isNotEmpty) {
+        defaultWalletId = (regularRows.first['id'] as num).toInt();
+      } else {
+        defaultWalletId = await db.rawInsert(
+          'INSERT INTO wallets (name, is_default, wallet_kind, created_at) VALUES (?, 1, ?, ?)',
+          [
+            AppConstants.defaultWalletName,
+            AppConstants.walletKindRegular,
+            DateTime.now().toIso8601String(),
+          ],
+        );
+      }
+    }
+
+    await db.rawUpdate(
+      'UPDATE wallets SET is_default = CASE WHEN id = ? THEN 1 ELSE 0 END',
+      [defaultWalletId],
+    );
+
+    return _BuiltInWalletIds(
+      defaultWalletId: defaultWalletId,
+      savingWalletId: savingWalletId,
+    );
   }
 
   Future<void> _ensureTransactionsWalletSchema(
@@ -195,41 +330,24 @@ class AppDatabase {
     await db.execute('DROP TABLE transactions_old');
   }
 
-  Future<int> _ensureDefaultWallet(DatabaseExecutor db) async {
-    final defaultRows = await db.query(
-      'wallets',
-      columns: ['id'],
-      where: 'is_default = 1',
-      limit: 1,
+  Future<void> _migrateLegacySavingsTransactions(
+    DatabaseExecutor db,
+    int savingWalletId,
+  ) async {
+    await db.rawUpdate(
+      'UPDATE transactions SET wallet_id = ? WHERE type IN (?, ?)',
+      [savingWalletId, 'savings', 'savingDeduct'],
     );
 
-    if (defaultRows.isNotEmpty) {
-      return defaultRows.first['id'] as int;
-    }
+    await db.rawUpdate('UPDATE transactions SET type = ? WHERE type = ?', [
+      'income',
+      'savings',
+    ]);
 
-    final firstWalletRows = await db.query(
-      'wallets',
-      columns: ['id'],
-      orderBy: 'id ASC',
-      limit: 1,
-    );
-
-    if (firstWalletRows.isNotEmpty) {
-      final firstId = firstWalletRows.first['id'] as int;
-      await db.update(
-        'wallets',
-        {'is_default': 1},
-        where: 'id = ?',
-        whereArgs: [firstId],
-      );
-      return firstId;
-    }
-
-    return db.insert('wallets', {
-      'name': AppConstants.defaultWalletName,
-      'is_default': 1,
-      'created_at': DateTime.now().toIso8601String(),
-    });
+    await db.rawUpdate('UPDATE transactions SET type = ? WHERE type = ?', [
+      'expense',
+      'savingDeduct',
+    ]);
   }
 
   Future<void> _ensureWishlistColumns(Database db) async {
@@ -260,4 +378,14 @@ class AppDatabase {
       _db = null;
     }
   }
+}
+
+class _BuiltInWalletIds {
+  const _BuiltInWalletIds({
+    required this.defaultWalletId,
+    required this.savingWalletId,
+  });
+
+  final int defaultWalletId;
+  final int savingWalletId;
 }

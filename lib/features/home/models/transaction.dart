@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum TransactionType { income, expense, savings, savingDeduct }
+enum TransactionType { income, expense }
 
 @immutable
 class Transaction {
@@ -58,12 +58,21 @@ class Transaction {
   }
 
   factory Transaction.fromMap(Map<String, Object?> map) {
+    final rawType = map['type'] as String;
+    final type = switch (rawType) {
+      'income' => TransactionType.income,
+      'expense' => TransactionType.expense,
+      'savings' => TransactionType.income,
+      'savingDeduct' => TransactionType.expense,
+      _ => TransactionType.expense,
+    };
+
     return Transaction(
       id: map['id'] as int?,
       walletId: (map['wallet_id'] as num).toInt(),
       title: map['title'] as String,
       category: map['category'] as String,
-      type: TransactionType.values.byName(map['type'] as String),
+      type: type,
       amount: (map['amount'] as num).toDouble(),
       date: DateTime.parse(map['date'] as String),
     );

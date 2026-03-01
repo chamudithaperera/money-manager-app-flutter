@@ -66,14 +66,19 @@ final walletNameMapProvider = Provider<Map<int, String>>((ref) {
 
 final defaultWalletProvider = Provider<Wallet?>((ref) {
   final wallets = ref.watch(walletsProvider).value ?? const [];
-  if (wallets.isEmpty) return null;
-
-  final maybeDefault = wallets.where((wallet) => wallet.isDefault);
+  final maybeDefault = wallets.where(
+    (wallet) => wallet.isDefault && !wallet.isSavingWallet,
+  );
   if (maybeDefault.isNotEmpty) {
     return maybeDefault.first;
   }
 
-  return wallets.first;
+  final regularWallets = wallets.where((wallet) => !wallet.isSavingWallet);
+  if (regularWallets.isNotEmpty) {
+    return regularWallets.first;
+  }
+
+  return null;
 });
 
 class WalletSummary {
@@ -81,8 +86,6 @@ class WalletSummary {
     required this.wallet,
     required this.income,
     required this.expense,
-    required this.savings,
-    required this.savingDeduct,
     required this.transferIn,
     required this.transferOut,
     required this.balance,
@@ -91,13 +94,9 @@ class WalletSummary {
   final Wallet wallet;
   final double income;
   final double expense;
-  final double savings;
-  final double savingDeduct;
   final double transferIn;
   final double transferOut;
   final double balance;
-
-  double get netSavings => savings - savingDeduct;
 }
 
 final walletSummariesProvider = Provider<List<WalletSummary>>((ref) {
@@ -127,12 +126,6 @@ final walletSummariesProvider = Provider<List<WalletSummary>>((ref) {
       case TransactionType.expense:
         acc.expense += tx.amount;
         break;
-      case TransactionType.savings:
-        acc.savings += tx.amount;
-        break;
-      case TransactionType.savingDeduct:
-        acc.savingDeduct += tx.amount;
-        break;
     }
   }
 
@@ -151,19 +144,12 @@ final walletSummariesProvider = Provider<List<WalletSummary>>((ref) {
 
   return wallets.where((wallet) => wallet.id != null).map((wallet) {
     final acc = accByWalletId[wallet.id!]!;
-    final balance =
-        acc.income -
-        acc.expense -
-        acc.savings +
-        acc.transferIn -
-        acc.transferOut;
+    final balance = acc.income - acc.expense + acc.transferIn - acc.transferOut;
 
     return WalletSummary(
       wallet: wallet,
       income: acc.income,
       expense: acc.expense,
-      savings: acc.savings,
-      savingDeduct: acc.savingDeduct,
       transferIn: acc.transferIn,
       transferOut: acc.transferOut,
       balance: balance,
@@ -171,9 +157,33 @@ final walletSummariesProvider = Provider<List<WalletSummary>>((ref) {
   }).toList();
 });
 
-final totalWalletBalanceProvider = Provider<double>((ref) {
+final savingWalletSummaryProvider = Provider<WalletSummary?>((ref) {
   final summaries = ref.watch(walletSummariesProvider);
-  return summaries.fold(0.0, (sum, item) => sum + item.balance);
+  for (final summary in summaries) {
+    if (summary.wallet.isSavingWallet) {
+      return summary;
+    }
+  }
+  return null;
+});
+
+final regularWalletSummariesProvider = Provider<List<WalletSummary>>((ref) {
+  final summaries = ref.watch(walletSummariesProvider);
+  return summaries.where((summary) => !summary.wallet.isSavingWallet).toList();
+});
+
+final totalRegularWalletBalanceProvider = Provider<double>((ref) {
+  final regularSummaries = ref.watch(regularWalletSummariesProvider);
+  return regularSummaries.fold(0.0, (sum, item) => sum + item.balance);
+});
+
+final savingsBalanceProvider = Provider<double>((ref) {
+  final savingSummary = ref.watch(savingWalletSummaryProvider);
+  return savingSummary?.balance ?? 0;
+});
+
+final totalWalletBalanceProvider = Provider<double>((ref) {
+  return ref.watch(totalRegularWalletBalanceProvider);
 });
 
 class _WalletAccumulator {
@@ -181,8 +191,6 @@ class _WalletAccumulator {
 
   double income = 0;
   double expense = 0;
-  double savings = 0;
-  double savingDeduct = 0;
   double transferIn = 0;
   double transferOut = 0;
 }

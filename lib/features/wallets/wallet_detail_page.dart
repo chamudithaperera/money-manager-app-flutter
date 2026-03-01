@@ -251,8 +251,8 @@ class WalletDetailPage extends ConsumerWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _summaryTile(
-            label: 'Savings',
-            amount: summary?.netSavings ?? 0,
+            label: 'Net Flow',
+            amount: (summary?.income ?? 0) - (summary?.expense ?? 0),
             currency: currency,
             color: AppColors.savings,
           ),
@@ -307,8 +307,6 @@ class WalletDetailPage extends ConsumerWidget {
       final icon = switch (tx.type) {
         TransactionType.income => Symbols.trending_up,
         TransactionType.expense => Symbols.trending_down,
-        TransactionType.savings => Symbols.savings,
-        TransactionType.savingDeduct => Symbols.money_off,
       };
 
       activities.add(
@@ -358,8 +356,6 @@ class WalletDetailPage extends ConsumerWidget {
     return switch (type) {
       TransactionType.income => 'Income',
       TransactionType.expense => 'Expense',
-      TransactionType.savings => 'Savings',
-      TransactionType.savingDeduct => 'Saving Deduct',
     };
   }
 

@@ -18,8 +18,6 @@ final statsProvider = Provider<HomeStats>((ref) {
   final transactions = ref.watch(transactionsProvider).value ?? const [];
   double income = 0;
   double expenses = 0;
-  double savings = 0;
-  double savingDeduct = 0;
 
   for (final tx in transactions) {
     switch (tx.type) {
@@ -29,22 +27,15 @@ final statsProvider = Provider<HomeStats>((ref) {
       case TransactionType.expense:
         expenses += tx.amount;
         break;
-      case TransactionType.savings:
-        savings += tx.amount;
-        break;
-      case TransactionType.savingDeduct:
-        savingDeduct += tx.amount;
-        break;
     }
   }
 
-  final netSavings = savings - savingDeduct;
-  final balance = income - expenses - savings;
+  final balance = income - expenses;
 
   return HomeStats(
     income: income,
     expenses: expenses,
-    savings: netSavings,
+    savings: 0,
     balance: balance,
   );
 });

@@ -31,14 +31,42 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider).asData?.value;
     final currency = settings?.currencySymbol ?? AppConstants.currencySymbol;
-    final stats = _buildStats(widget.transactions);
+    final regularSummaries = ref.watch(regularWalletSummariesProvider);
+    final savingWalletSummary = ref.watch(savingWalletSummaryProvider);
+    final savingsBalance = ref.watch(savingsBalanceProvider);
+    final totalRegularBalance = ref.watch(totalRegularWalletBalanceProvider);
+
+    final regularIncome = regularSummaries.fold<double>(
+      0,
+      (sum, item) => sum + item.income,
+    );
+    final regularExpense = regularSummaries.fold<double>(
+      0,
+      (sum, item) => sum + item.expense,
+    );
+
+    final stats = _buildStats(
+      widget.transactions,
+      income: regularIncome,
+      expense: regularExpense,
+      savings: savingsBalance,
+      balance: totalRegularBalance,
+    );
+
     final monthlyBudget = settings?.monthlyBudget;
-    final thisMonthExpense = _thisMonthExpense(widget.transactions);
+    final savingWalletId = savingWalletSummary?.wallet.id;
+    final thisMonthExpense = _thisMonthExpense(
+      widget.transactions,
+      excludedWalletId: savingWalletId,
+    );
     final savingsRate = stats.income <= 0
         ? 0.0
         : (stats.savings / stats.income) * 100;
     final averageTransaction = _averageTransactionAmount(widget.transactions);
-    final topExpenseCategory = _topExpenseCategory(widget.transactions);
+    final topExpenseCategory = _topExpenseCategory(
+      widget.transactions,
+      excludedWalletId: savingWalletId,
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
@@ -135,31 +163,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  _ProfileStats _buildStats(List<Transaction> transactions) {
-    double income = 0;
-    double expense = 0;
-    double savings = 0;
-    double savingDeduct = 0;
-
-    for (final tx in transactions) {
-      switch (tx.type) {
-        case TransactionType.income:
-          income += tx.amount;
-          break;
-        case TransactionType.expense:
-          expense += tx.amount;
-          break;
-        case TransactionType.savings:
-          savings += tx.amount;
-          break;
-        case TransactionType.savingDeduct:
-          savingDeduct += tx.amount;
-          break;
-      }
-    }
-
-    final netSavings = savings - savingDeduct;
-    final balance = income - expense - savings;
+  _ProfileStats _buildStats(
+    List<Transaction> transactions, {
+    required double income,
+    required double expense,
+    required double savings,
+    required double balance,
+  }) {
     final now = DateTime.now();
     final thisMonthCount = transactions.where((tx) {
       return tx.date.year == now.year && tx.date.month == now.month;
@@ -174,7 +184,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return _ProfileStats(
       income: income,
       expense: expense,
-      savings: netSavings,
+      savings: savings,
       balance: balance,
       totalTransactions: transactions.length,
       thisMonthTransactions: thisMonthCount,
@@ -575,12 +585,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  double _thisMonthExpense(List<Transaction> transactions) {
+  double _thisMonthExpense(
+    List<Transaction> transactions, {
+    int? excludedWalletId,
+  }) {
     final now = DateTime.now();
     return transactions
         .where(
           (tx) =>
               tx.type == TransactionType.expense &&
+              tx.walletId != excludedWalletId &&
               tx.date.year == now.year &&
               tx.date.month == now.month,
         )
@@ -593,10 +607,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return total / transactions.length;
   }
 
-  String _topExpenseCategory(List<Transaction> transactions) {
+  String _topExpenseCategory(
+    List<Transaction> transactions, {
+    int? excludedWalletId,
+  }) {
     final categoryTotals = <String, double>{};
     for (final tx in transactions) {
       if (tx.type != TransactionType.expense) continue;
+      if (tx.walletId == excludedWalletId) continue;
       categoryTotals.update(
         tx.category,
         (value) => value + tx.amount,

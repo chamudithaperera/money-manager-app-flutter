@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
-
 import 'dart:io';
 
 import 'package:fl_chart/fl_chart.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -38,6 +37,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         AppConstants.currencySymbol;
     final filtered = _getFilteredTransactions();
     final summary = _buildSummary(filtered);
+    final savingWalletBalance = ref.watch(savingsBalanceProvider);
     final chartPoints = _buildChartPoints(filtered);
 
     return Scaffold(
@@ -53,7 +53,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
           children: [
             _buildFilters(),
             const SizedBox(height: 16),
-            _buildSummaryCards(summary, currency),
+            _buildSummaryCards(summary, savingWalletBalance, currency),
             const SizedBox(height: 16),
             _buildChartSection(chartPoints, currency),
             const SizedBox(height: 16),
@@ -62,7 +62,11 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
             ElevatedButton.icon(
               onPressed: _isExporting
                   ? null
-                  : () => _downloadPdfReport(filtered, currency),
+                  : () => _downloadPdfReport(
+                      filtered,
+                      currency,
+                      savingWalletBalance,
+                    ),
               icon: _isExporting
                   ? const SizedBox(
                       height: 18,
@@ -123,8 +127,6 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
               _typeChip('All', null),
               _typeChip('Income', TransactionType.income),
               _typeChip('Expense', TransactionType.expense),
-              _typeChip('Savings', TransactionType.savings),
-              _typeChip('Deduct', TransactionType.savingDeduct),
             ],
           ),
         ],
@@ -152,7 +154,11 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
     );
   }
 
-  Widget _buildSummaryCards(_ReportSummary summary, String currency) {
+  Widget _buildSummaryCards(
+    _ReportSummary summary,
+    double savingWalletBalance,
+    String currency,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -175,8 +181,8 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         const SizedBox(width: 8),
         Expanded(
           child: _summaryCard(
-            'Savings',
-            summary.netSavings,
+            'Saving Wallet',
+            savingWalletBalance,
             currency,
             AppColors.savings,
           ),
@@ -234,7 +240,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
 
     final incomeSpots = <FlSpot>[];
     final expenseSpots = <FlSpot>[];
-    final savingsSpots = <FlSpot>[];
+    final netSpots = <FlSpot>[];
     double maxY = 0;
 
     for (var i = 0; i < data.length; i++) {
@@ -242,12 +248,12 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
       final x = i.toDouble();
       incomeSpots.add(FlSpot(x, point.income));
       expenseSpots.add(FlSpot(x, point.expense));
-      savingsSpots.add(FlSpot(x, point.savings));
+      netSpots.add(FlSpot(x, point.net));
       maxY = [
         maxY,
         point.income,
         point.expense,
-        point.savings,
+        point.net.abs(),
       ].reduce((a, b) => a > b ? a : b).toDouble();
     }
 
@@ -337,7 +343,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                 lineBarsData: [
                   _line(incomeSpots, AppColors.primary),
                   _line(expenseSpots, AppColors.expense),
-                  _line(savingsSpots, AppColors.savings),
+                  _line(netSpots, AppColors.savings),
                 ],
               ),
             ),
@@ -348,7 +354,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
             children: const [
               _LegendItem(label: 'Income', color: AppColors.primary),
               _LegendItem(label: 'Expense', color: AppColors.expense),
-              _LegendItem(label: 'Savings', color: AppColors.savings),
+              _LegendItem(label: 'Net', color: AppColors.savings),
             ],
           ),
         ],
@@ -389,8 +395,6 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                 final amountColor = switch (tx.type) {
                   TransactionType.income => AppColors.primary,
                   TransactionType.expense => AppColors.expense,
-                  TransactionType.savings => AppColors.savings,
-                  TransactionType.savingDeduct => Colors.orange,
                 };
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -493,8 +497,6 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
   _ReportSummary _buildSummary(List<Transaction> transactions) {
     double income = 0;
     double expense = 0;
-    double savings = 0;
-    double savingDeduct = 0;
 
     for (final tx in transactions) {
       switch (tx.type) {
@@ -504,21 +506,10 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         case TransactionType.expense:
           expense += tx.amount;
           break;
-        case TransactionType.savings:
-          savings += tx.amount;
-          break;
-        case TransactionType.savingDeduct:
-          savingDeduct += tx.amount;
-          break;
       }
     }
 
-    return _ReportSummary(
-      income: income,
-      expense: expense,
-      savings: savings,
-      savingDeduct: savingDeduct,
-    );
+    return _ReportSummary(income: income, expense: expense);
   }
 
   List<_ChartPoint> _buildChartPoints(List<Transaction> transactions) {
@@ -528,15 +519,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
     final map = <String, _ReportSummary>{};
     for (final tx in transactions) {
       final key = dateFormatter.format(tx.date);
-      map.putIfAbsent(
-        key,
-        () => const _ReportSummary(
-          income: 0,
-          expense: 0,
-          savings: 0,
-          savingDeduct: 0,
-        ),
-      );
+      map.putIfAbsent(key, () => const _ReportSummary(income: 0, expense: 0));
       final current = map[key]!;
       map[key] = switch (tx.type) {
         TransactionType.income => current.copyWith(
@@ -544,12 +527,6 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         ),
         TransactionType.expense => current.copyWith(
           expense: current.expense + tx.amount,
-        ),
-        TransactionType.savings => current.copyWith(
-          savings: current.savings + tx.amount,
-        ),
-        TransactionType.savingDeduct => current.copyWith(
-          savingDeduct: current.savingDeduct + tx.amount,
         ),
       };
     }
@@ -562,7 +539,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
         label: labelFormatter.format(date),
         income: stats.income,
         expense: stats.expense,
-        savings: stats.netSavings,
+        net: stats.balance,
       );
     }).toList();
   }
@@ -570,6 +547,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
   Future<void> _downloadPdfReport(
     List<Transaction> filtered,
     String currency,
+    double savingWalletBalance,
   ) async {
     if (filtered.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -634,13 +612,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                       'Expense: $currency${summary.expense.toStringAsFixed(2)}',
                     ),
                     pw.Text(
-                      'Savings: $currency${summary.savings.toStringAsFixed(2)}',
-                    ),
-                    pw.Text(
-                      'Deduct: $currency${summary.savingDeduct.toStringAsFixed(2)}',
-                    ),
-                    pw.Text(
-                      'Net Savings: $currency${summary.netSavings.toStringAsFixed(2)}',
+                      'Saving Wallet Balance: $currency${savingWalletBalance.toStringAsFixed(2)}',
                     ),
                     pw.Text(
                       'Net Balance: $currency${summary.balance.toStringAsFixed(2)}',
@@ -743,43 +715,27 @@ class _ChartPoint {
     required this.label,
     required this.income,
     required this.expense,
-    required this.savings,
+    required this.net,
   });
 
   final String label;
   final double income;
   final double expense;
-  final double savings;
+  final double net;
 }
 
 class _ReportSummary {
-  const _ReportSummary({
-    required this.income,
-    required this.expense,
-    required this.savings,
-    required this.savingDeduct,
-  });
+  const _ReportSummary({required this.income, required this.expense});
 
   final double income;
   final double expense;
-  final double savings;
-  final double savingDeduct;
 
-  double get netSavings => savings - savingDeduct;
+  double get balance => income - expense;
 
-  double get balance => income - expense - savings;
-
-  _ReportSummary copyWith({
-    double? income,
-    double? expense,
-    double? savings,
-    double? savingDeduct,
-  }) {
+  _ReportSummary copyWith({double? income, double? expense}) {
     return _ReportSummary(
       income: income ?? this.income,
       expense: expense ?? this.expense,
-      savings: savings ?? this.savings,
-      savingDeduct: savingDeduct ?? this.savingDeduct,
     );
   }
 }
