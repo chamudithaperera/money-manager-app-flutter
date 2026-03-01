@@ -9,7 +9,7 @@ abstract final class AppConstants {
   static const String defaultWalletName = 'Wallet 01';
 
   /// Built-in saving wallet name.
-  static const String savingWalletName = 'saving wallet';
+  static const String savingWalletName = 'Saving Wallet';
 
   /// Wallet kind value for regular wallets.
   static const String walletKindRegular = 'regular';

@@ -245,9 +245,14 @@ class AppDatabase {
       }
     }
 
-    await db.rawUpdate('UPDATE wallets SET is_default = 0 WHERE id = ?', [
-      savingWalletId,
-    ]);
+    await db.rawUpdate(
+      'UPDATE wallets SET name = ?, wallet_kind = ?, is_default = 0 WHERE id = ?',
+      [
+        AppConstants.savingWalletName,
+        AppConstants.walletKindSaving,
+        savingWalletId,
+      ],
+    );
 
     int defaultWalletId;
     final defaultRows = await db.rawQuery(
