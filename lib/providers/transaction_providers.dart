@@ -1,13 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/local/app_database.dart';
 import '../data/repositories/transaction_repository.dart';
 import '../features/home/models/transaction.dart';
-
-final databaseProvider = Provider<AppDatabase>((ref) {
-  return AppDatabase.instance;
-});
+import 'database_provider.dart';
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepository(ref.watch(databaseProvider));

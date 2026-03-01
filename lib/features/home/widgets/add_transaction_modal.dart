@@ -1,27 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/theme.dart';
+import '../../wallets/models/wallet.dart';
+import '../../wallets/providers/wallet_provider.dart';
 import '../models/transaction.dart';
 
-class AddTransactionModal extends StatefulWidget {
+class AddTransactionModal extends ConsumerStatefulWidget {
   const AddTransactionModal({super.key, required this.onSubmit, this.initial});
 
   final ValueChanged<TransactionFormData> onSubmit;
   final Transaction? initial;
 
   @override
-  State<AddTransactionModal> createState() => _AddTransactionModalState();
+  ConsumerState<AddTransactionModal> createState() =>
+      _AddTransactionModalState();
 }
 
-class _AddTransactionModalState extends State<AddTransactionModal> {
+class _AddTransactionModalState extends ConsumerState<AddTransactionModal> {
   TransactionType _type = TransactionType.expense;
   String _description = '';
   String _amount = '';
   DateTime _date = DateTime.now();
   String _category = 'other';
+  int? _walletId;
   bool _showCategoryPicker = false;
   late final TextEditingController _descriptionController;
   late final TextEditingController _amountController;
@@ -36,6 +41,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       _amount = initial.amount.toStringAsFixed(2);
       _date = initial.date;
       _category = _categoryIdFromLabel(initial.category);
+      _walletId = initial.walletId;
     }
     _descriptionController = TextEditingController(text: _description);
     _amountController = TextEditingController(text: _amount);
@@ -50,6 +56,12 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
   @override
   Widget build(BuildContext context) {
+    final walletsAsync = ref.watch(walletsProvider);
+    final wallets = walletsAsync.value ?? const <Wallet>[];
+    final selectedWalletId = wallets.any((wallet) => wallet.id == _walletId)
+        ? _walletId
+        : _fallbackWalletId(wallets);
+
     final selectedCategory = _categories.firstWhere(
       (c) => c.id == _category,
       orElse: () => _categories.last,
@@ -96,6 +108,14 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                       color: AppColors.textSecondary,
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                _sectionLabel('Wallet'),
+                const SizedBox(height: 8),
+                _walletField(
+                  wallets: wallets,
+                  selectedWalletId: selectedWalletId,
+                  isLoading: walletsAsync.isLoading,
                 ),
                 const SizedBox(height: 16),
                 _sectionLabel('Transaction Type'),
@@ -151,9 +171,12 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _description.isEmpty || _amount.isEmpty
+                    onPressed:
+                        _description.isEmpty ||
+                            _amount.isEmpty ||
+                            selectedWalletId == null
                         ? null
-                        : _submit,
+                        : () => _submit(selectedWalletId),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.black,
@@ -176,6 +199,24 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         ),
       ),
     );
+  }
+
+  int? _fallbackWalletId(List<Wallet> wallets) {
+    final withId = wallets.where((wallet) => wallet.id != null).toList();
+    if (withId.isEmpty) return null;
+
+    final initialWalletId = widget.initial?.walletId;
+    if (initialWalletId != null &&
+        withId.any((wallet) => wallet.id == initialWalletId)) {
+      return initialWalletId;
+    }
+
+    final maybeDefault = withId.where((wallet) => wallet.isDefault);
+    if (maybeDefault.isNotEmpty) {
+      return maybeDefault.first.id;
+    }
+
+    return withId.first.id;
   }
 
   Widget _sectionLabel(String text) {
@@ -223,6 +264,53 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _walletField({
+    required List<Wallet> wallets,
+    required int? selectedWalletId,
+    required bool isLoading,
+  }) {
+    if (isLoading && wallets.isEmpty) {
+      return const LinearProgressIndicator(minHeight: 3);
+    }
+
+    final availableWallets = wallets
+        .where((wallet) => wallet.id != null)
+        .toList();
+    if (availableWallets.isEmpty) {
+      return Text(
+        'No wallets found. Please create a wallet first.',
+        style: AppTextStyles.caption.copyWith(color: AppColors.expense),
+      );
+    }
+
+    return DropdownButtonFormField<int>(
+      initialValue: selectedWalletId,
+      dropdownColor: AppColors.surface,
+      decoration: InputDecoration(
+        prefixIcon: const Icon(
+          Symbols.account_balance_wallet,
+          size: 18,
+          color: AppColors.textTertiary,
+        ),
+        hintText: 'Select wallet',
+      ),
+      items: availableWallets
+          .map(
+            (wallet) => DropdownMenuItem<int>(
+              value: wallet.id!,
+              child: Text(
+                wallet.isDefault ? '${wallet.name} (Default)' : wallet.name,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _walletId = value);
+      },
     );
   }
 
@@ -348,11 +436,12 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     }
   }
 
-  void _submit() {
+  void _submit(int walletId) {
     final amount = double.tryParse(_amount) ?? 0;
     widget.onSubmit(
       TransactionFormData(
         id: widget.initial?.id,
+        walletId: walletId,
         type: _type,
         description: _description,
         amount: amount,
@@ -451,6 +540,7 @@ class _CategoryOption {
 class TransactionFormData {
   const TransactionFormData({
     this.id,
+    required this.walletId,
     required this.type,
     required this.description,
     required this.amount,
@@ -459,6 +549,7 @@ class TransactionFormData {
   });
 
   final int? id;
+  final int walletId;
   final TransactionType type;
   final String description;
   final double amount;

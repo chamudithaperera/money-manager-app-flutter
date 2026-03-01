@@ -6,7 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/theme/theme.dart';
 
-enum BottomTab { home, history, wishlist, profile }
+enum BottomTab { home, history, wallets, wishlist, profile }
 
 class BottomNav extends StatelessWidget {
   const BottomNav({
@@ -69,6 +69,12 @@ class BottomNav extends StatelessWidget {
                         icon: Symbols.history,
                         isActive: activeTab == BottomTab.history,
                         onTap: () => onTabChange(BottomTab.history),
+                      ),
+                      _NavItem(
+                        label: 'Wallets',
+                        icon: Symbols.account_balance_wallet,
+                        isActive: activeTab == BottomTab.wallets,
+                        onTap: () => onTabChange(BottomTab.wallets),
                       ),
                       _NavItem(
                         label: 'Wishlist',

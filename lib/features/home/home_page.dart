@@ -6,11 +6,14 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
+import '../../features/wallets/providers/wallet_provider.dart';
+import '../../features/wallets/providers/wallet_transfer_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/transaction_providers.dart';
 import '../../shared/widgets/bottom_nav.dart';
 import '../profile/profile_page.dart';
 import '../transaction_history/history_page.dart';
+import '../wallets/wallets_page.dart';
 import '../wishlist/wishlist_page.dart';
 import 'models/transaction.dart';
 import 'widgets/activity_item.dart';
@@ -34,6 +37,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionsProvider);
     final stats = ref.watch(statsProvider);
+    final walletNameMap = ref.watch(walletNameMapProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -46,10 +50,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: transactionsAsync.when(
                 data: (items) {
                   if (_activeTab == BottomTab.home) {
-                    return _buildHome(items, stats);
+                    return _buildHome(items, stats, walletNameMap);
                   }
                   if (_activeTab == BottomTab.history) {
-                    return _buildHistory(items);
+                    return _buildHistory(items, walletNameMap);
+                  }
+                  if (_activeTab == BottomTab.wallets) {
+                    return _buildWallets();
                   }
                   if (_activeTab == BottomTab.wishlist) {
                     return _buildWishlist();
@@ -77,7 +84,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildHome(List<Transaction> items, HomeStats stats) {
+  Widget _buildHome(
+    List<Transaction> items,
+    HomeStats stats,
+    Map<int, String> walletNameMap,
+  ) {
     final recentTransactions = items.take(5).toList();
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
@@ -91,6 +102,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             income: stats.income,
             expenses: stats.expenses,
             savings: stats.savings,
+            onTap: _showWalletBalances,
           ),
           const SizedBox(height: 24),
           Row(
@@ -127,6 +139,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               for (final tx in recentTransactions)
                 ActivityItem(
                   transaction: tx,
+                  walletName: walletNameMap[tx.walletId],
                   onTap: () => _showTransactionDetails(tx),
                   onLongPress: () => _showTransactionActions(tx),
                 ),
@@ -242,9 +255,13 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildHistory(List<Transaction> items) {
+  Widget _buildHistory(
+    List<Transaction> items,
+    Map<int, String> walletNameMap,
+  ) {
     return HistoryPage(
       transactions: items,
+      walletNameMap: walletNameMap,
       activeType: _filterType,
       onTypeChange: (type) => setState(() => _filterType = type),
       activeDate: _dateFilter,
@@ -256,6 +273,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildProfile(List<Transaction> items) {
     return ProfilePage(transactions: items);
+  }
+
+  Widget _buildWallets() {
+    return const WalletsPage();
   }
 
   Widget _buildWishlist() {
@@ -278,6 +299,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           onSubmit: (data) {
             final transaction = Transaction(
               id: data.id,
+              walletId: data.walletId,
               title: data.description,
               category: data.category,
               type: data.type,
@@ -336,6 +358,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         ref.read(settingsProvider).asData?.value.currencySymbol ??
         AppConstants.currencySymbol;
     final dateText = _formatDateTime(transaction.date);
+    final walletName = _walletLabel(transaction.walletId);
     final amountPrefix = switch (transaction.type) {
       TransactionType.income => '+',
       TransactionType.expense => '-',
@@ -362,6 +385,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 _detailRow('Title', transaction.title),
                 _detailRow('Category', transaction.category),
                 _detailRow('Type', _typeLabel(transaction.type)),
+                _detailRow('Wallet', walletName),
                 _detailRow('Date', dateText),
                 _detailRow(
                   'Amount',
@@ -471,6 +495,97 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  String _walletLabel(int walletId) {
+    final walletMap = ref.read(walletNameMapProvider);
+    return walletMap[walletId] ?? 'Wallet #$walletId';
+  }
+
+  Future<void> _showWalletBalances() async {
+    await ref.read(walletsProvider.future);
+    await ref.read(walletTransfersProvider.future);
+    if (!mounted) return;
+
+    final walletSummaries = ref.read(walletSummariesProvider);
+    final currency =
+        ref.read(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
+
+    if (walletSummaries.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No wallets available yet.')),
+      );
+      return;
+    }
+
+    final total = walletSummaries.fold<double>(
+      0,
+      (sum, item) => sum + item.balance,
+    );
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Wallet Balances', style: AppTextStyles.sectionHeader),
+                const SizedBox(height: 10),
+                ...walletSummaries.map((summary) {
+                  final name = summary.wallet.name;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          summary.wallet.isDefault ? '$name (Default)' : name,
+                          style: AppTextStyles.body,
+                        ),
+                        Text(
+                          '$currency ${summary.balance.toStringAsFixed(2)}',
+                          style: AppTextStyles.body.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const Divider(height: 22, color: AppColors.border),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total',
+                      style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '$currency ${total.toStringAsFixed(2)}',
+                      style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

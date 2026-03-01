@@ -15,6 +15,7 @@ import '../../core/theme/theme.dart';
 import '../../providers/settings_provider.dart';
 import '../../shared/utils/downloads.dart';
 import '../home/models/transaction.dart';
+import '../wallets/providers/wallet_provider.dart';
 
 class AnalysisReportPage extends ConsumerStatefulWidget {
   const AnalysisReportPage({super.key, required this.transactions});
@@ -580,6 +581,12 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
     setState(() => _isExporting = true);
 
     try {
+      final wallets = await ref.read(walletRepositoryProvider).getAll();
+      final walletMap = {
+        for (final wallet in wallets)
+          if (wallet.id != null) wallet.id!: wallet.name,
+      };
+
       final pdf = pw.Document();
       final generatedAt = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
       final summary = _buildSummary(filtered);
@@ -649,13 +656,23 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
               pw.SizedBox(height: 8),
               pw.TableHelper.fromTextArray(
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                headers: ['Date', 'Title', 'Category', 'Type', 'Amount'],
+                headers: [
+                  'Date',
+                  'Title',
+                  'Category',
+                  'Type',
+                  'Wallet',
+                  'Amount',
+                ],
                 data: filtered.map((tx) {
+                  final walletName =
+                      walletMap[tx.walletId] ?? 'Wallet #${tx.walletId}';
                   return [
                     dateFormat.format(tx.date),
                     tx.title,
                     tx.category,
                     tx.type.name,
+                    walletName,
                     '$currency${tx.amount.toStringAsFixed(2)}',
                   ];
                 }).toList(),

@@ -13,6 +13,7 @@ import '../../shared/utils/downloads.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
 import '../../providers/settings_provider.dart';
+import '../wallets/providers/wallet_provider.dart';
 import '../home/models/transaction.dart';
 import 'analysis_report_page.dart';
 
@@ -822,16 +823,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final settings = ref.read(settingsProvider).asData?.value;
     final currency = settings?.currencySymbol ?? AppConstants.currencySymbol;
     final formatter = DateFormat('yyyy-MM-dd HH:mm');
+    final wallets = await ref.read(walletRepositoryProvider).getAll();
+    final walletMap = {
+      for (final wallet in wallets)
+        if (wallet.id != null) wallet.id!: wallet.name,
+    };
 
     final sorted = [...widget.transactions]
       ..sort((a, b) => b.date.compareTo(a.date));
 
     final csv = StringBuffer();
-    csv.writeln('Date,Title,Category,Type,Amount ($currency)');
+    csv.writeln('Date,Title,Category,Type,Wallet,Amount ($currency)');
 
     for (final tx in sorted) {
+      final walletName = walletMap[tx.walletId] ?? 'Wallet #${tx.walletId}';
       csv.writeln(
-        '${formatter.format(tx.date)},${_escapeCsv(tx.title)},${_escapeCsv(tx.category)},${tx.type.name},${tx.amount.toStringAsFixed(2)}',
+        '${formatter.format(tx.date)},${_escapeCsv(tx.title)},${_escapeCsv(tx.category)},${tx.type.name},${_escapeCsv(walletName)},${tx.amount.toStringAsFixed(2)}',
       );
     }
 

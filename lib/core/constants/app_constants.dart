@@ -5,6 +5,9 @@ abstract final class AppConstants {
   /// Currency symbol (e.g. Rs for Sri Lankan Rupees).
   static const String currencySymbol = 'Rs';
 
+  /// Default wallet name used when no custom wallets exist.
+  static const String defaultWalletName = 'Wallet 01';
+
   /// User display name shown in the app.
   static const String userDisplayName = 'Chamuditha Perera';
 

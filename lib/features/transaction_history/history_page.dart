@@ -9,6 +9,7 @@ class HistoryPage extends StatelessWidget {
   const HistoryPage({
     super.key,
     required this.transactions,
+    required this.walletNameMap,
     required this.activeType,
     required this.onTypeChange,
     required this.activeDate,
@@ -18,6 +19,7 @@ class HistoryPage extends StatelessWidget {
   });
 
   final List<Transaction> transactions;
+  final Map<int, String> walletNameMap;
   final TransactionType? activeType;
   final ValueChanged<TransactionType?> onTypeChange;
   final String activeDate;
@@ -99,6 +101,7 @@ class HistoryPage extends StatelessWidget {
                           for (final tx in entry.value)
                             ActivityItem(
                               transaction: tx,
+                              walletName: walletNameMap[tx.walletId],
                               onTap: () => onTransactionTap(tx),
                               onLongPress: () => onTransactionLongPress(tx),
                             ),

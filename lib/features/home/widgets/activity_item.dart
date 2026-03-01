@@ -10,11 +10,13 @@ class ActivityItem extends StatelessWidget {
   const ActivityItem({
     super.key,
     required this.transaction,
+    this.walletName,
     this.onTap,
     this.onLongPress,
   });
 
   final Transaction transaction;
+  final String? walletName;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
@@ -29,6 +31,7 @@ class ActivityItem extends StatelessWidget {
       TransactionType.savings => '',
     };
     final dateStr = _formatDate(transaction.date);
+    final walletLabel = walletName ?? 'Wallet #${transaction.walletId}';
 
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.large),
@@ -63,7 +66,7 @@ class ActivityItem extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '$dateStr • ${transaction.category}',
+                          '$dateStr • ${transaction.category} • $walletLabel',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.transactionSubtitle,
