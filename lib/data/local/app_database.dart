@@ -22,7 +22,7 @@ class AppDatabase {
 
     return openDatabase(
       dbPath,
-      version: 4,
+      version: 5,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -30,6 +30,7 @@ class AppDatabase {
         await _createWalletsTable(db);
         await _createWalletTransfersTable(db);
         await _createTransactionsTable(db);
+        await _createWishlistEventsTable(db);
         await _createWishlistTable(db);
 
         await _createWalletDefaultIndex(db);
@@ -42,6 +43,7 @@ class AppDatabase {
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
+          await _createWishlistEventsTable(db);
           await _createWishlistTable(db);
         }
 
@@ -64,6 +66,10 @@ class AppDatabase {
 
           final walletIds = await _ensureBuiltInWallets(db);
           await _migrateLegacySavingsTransactions(db, walletIds.savingWalletId);
+        }
+
+        if (oldVersion < 5) {
+          await _createWishlistEventsTable(db);
         }
 
         await _ensureWishlistColumns(db);
@@ -179,17 +185,29 @@ class AppDatabase {
     );
   }
 
+  Future<void> _createWishlistEventsTable(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS wishlist_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+  }
+
   Future<void> _createWishlistTable(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS wishlist_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         estimated_price REAL NOT NULL,
         estimated_date TEXT NOT NULL,
         is_completed INTEGER NOT NULL DEFAULT 0,
         real_cost REAL,
-        completed_date TEXT
+        completed_date TEXT,
+        FOREIGN KEY (event_id) REFERENCES wishlist_events(id) ON DELETE CASCADE
       )
     ''');
   }
@@ -356,6 +374,8 @@ class AppDatabase {
   }
 
   Future<void> _ensureWishlistColumns(Database db) async {
+    await _createWishlistEventsTable(db);
+
     final tableInfo = await db.rawQuery('PRAGMA table_info(wishlist_items)');
     if (tableInfo.isEmpty) return;
 
@@ -374,6 +394,54 @@ class AppDatabase {
         'ALTER TABLE wishlist_items ADD COLUMN completed_date TEXT',
       );
     }
+
+    if (!columns.contains('event_id')) {
+      await db.execute(
+        'ALTER TABLE wishlist_items ADD COLUMN event_id INTEGER',
+      );
+    }
+
+    final orphanedCount = Sqflite.firstIntValue(
+      await db.rawQuery('''
+        SELECT COUNT(*)
+        FROM wishlist_items wi
+        LEFT JOIN wishlist_events we ON we.id = wi.event_id
+        WHERE wi.event_id IS NULL OR we.id IS NULL
+      '''),
+    );
+
+    if ((orphanedCount ?? 0) > 0) {
+      final migratedEventId = await _ensureMigratedWishlistEvent(db);
+      await db.rawUpdate(
+        '''
+        UPDATE wishlist_items
+        SET event_id = ?
+        WHERE event_id IS NULL
+           OR event_id NOT IN (SELECT id FROM wishlist_events)
+        ''',
+        [migratedEventId],
+      );
+    }
+  }
+
+  Future<int> _ensureMigratedWishlistEvent(DatabaseExecutor db) async {
+    final existing = await db.query(
+      'wishlist_events',
+      columns: ['id'],
+      where: 'name = ?',
+      whereArgs: [AppConstants.migratedWishlistEventName],
+      orderBy: 'id ASC',
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      return (existing.first['id'] as num).toInt();
+    }
+
+    return db.insert('wishlist_events', {
+      'name': AppConstants.migratedWishlistEventName,
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<void> close() async {

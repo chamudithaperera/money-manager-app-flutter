@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 class WishlistItem {
   const WishlistItem({
     this.id,
+    required this.eventId,
     required this.name,
     required this.description,
     required this.estimatedPrice,
@@ -14,6 +15,7 @@ class WishlistItem {
   });
 
   final int? id;
+  final int eventId;
   final String name;
   final String description;
   final double estimatedPrice;
@@ -24,6 +26,7 @@ class WishlistItem {
 
   WishlistItem copyWith({
     int? id,
+    int? eventId,
     String? name,
     String? description,
     double? estimatedPrice,
@@ -35,6 +38,7 @@ class WishlistItem {
   }) {
     return WishlistItem(
       id: id ?? this.id,
+      eventId: eventId ?? this.eventId,
       name: name ?? this.name,
       description: description ?? this.description,
       estimatedPrice: estimatedPrice ?? this.estimatedPrice,
@@ -50,6 +54,7 @@ class WishlistItem {
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
+      'event_id': eventId,
       'name': name,
       'description': description,
       'estimated_price': estimatedPrice,
@@ -61,8 +66,14 @@ class WishlistItem {
   }
 
   factory WishlistItem.fromMap(Map<String, dynamic> map) {
+    final rawEventId = map['event_id'];
+    if (rawEventId == null) {
+      throw StateError('Wishlist item is missing event_id.');
+    }
+
     return WishlistItem(
       id: map['id'] as int?,
+      eventId: (rawEventId as num).toInt(),
       name: map['name'] as String,
       description: map['description'] as String,
       estimatedPrice: (map['estimated_price'] as num).toDouble(),

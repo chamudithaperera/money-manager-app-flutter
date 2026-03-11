@@ -22,4 +22,7 @@ abstract final class AppConstants {
 
   /// User initials for profile avatar (e.g. CP).
   static const String userInitials = 'CP';
+
+  /// Event name used when migrating old wishlist items without an event.
+  static const String migratedWishlistEventName = 'General Wishlist';
 }

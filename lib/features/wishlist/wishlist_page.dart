@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
-
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/theme.dart';
 import '../../providers/settings_provider.dart';
-import 'models/wishlist_item.dart';
 import 'providers/wishlist_provider.dart';
-import 'widgets/add_wishlist_modal.dart';
-import 'widgets/wishlist_list_item.dart';
+import 'widgets/add_wishlist_event_modal.dart';
+import 'wishlist_event_detail_page.dart';
 
 class WishlistPage extends ConsumerWidget {
   const WishlistPage({super.key});
@@ -18,6 +16,7 @@ class WishlistPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wishlistAsync = ref.watch(wishlistProvider);
+    final currency = _currency(ref);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -26,21 +25,31 @@ class WishlistPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Text('Wishlist', style: AppTextStyles.appTitle),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
+              child: Text('Wishlist Events', style: AppTextStyles.appTitle),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _buildAddButton(context, ref),
+              child: Text(
+                'Create events like "April Trip" and add related wishlist items inside each event.',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _buildAddEventButton(context, ref),
             ),
             const SizedBox(height: 16),
             Expanded(
               child: wishlistAsync.when(
-                data: (wishlistItems) {
-                  if (wishlistItems.isEmpty) {
+                data: (events) {
+                  if (events.isEmpty) {
                     return Center(
                       child: Text(
-                        'No items in your wishlist yet.',
+                        'No wishlist events yet.',
                         style: AppTextStyles.body.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -48,63 +57,28 @@ class WishlistPage extends ConsumerWidget {
                     );
                   }
 
-                  final planned =
-                      wishlistItems.where((item) => !item.isCompleted).toList()
-                        ..sort(
-                          (a, b) => a.estimatedDate.compareTo(b.estimatedDate),
-                        );
-                  final completed =
-                      wishlistItems.where((item) => item.isCompleted).toList()
-                        ..sort((a, b) {
-                          final aDate = a.completedDate ?? a.estimatedDate;
-                          final bDate = b.completedDate ?? b.estimatedDate;
-                          return bDate.compareTo(aDate);
-                        });
-
-                  return ListView(
+                  return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 110),
-                    children: [
-                      if (planned.isNotEmpty) ...[
-                        _sectionTitle('Planned Items'),
-                        const SizedBox(height: 10),
-                        ...planned.map(
-                          (item) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: WishlistItemWidget(
-                              item: item,
-                              onLongPress: () =>
-                                  _showItemActions(context, ref, item),
-                              onTap: () => _showItemActions(context, ref, item),
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (completed.isNotEmpty) ...[
-                        if (planned.isNotEmpty) const SizedBox(height: 14),
-                        _sectionTitle('Completed Items'),
-                        const SizedBox(height: 10),
-                        ...completed.map(
-                          (item) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: WishlistItemWidget(
-                              item: item,
-                              onLongPress: () =>
-                                  _showItemActions(context, ref, item),
-                              onTap: () => _showItemActions(context, ref, item),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                    itemCount: events.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final eventData = events[index];
+                      return _eventCard(
+                        context: context,
+                        ref: ref,
+                        eventData: eventData,
+                        currency: currency,
+                      );
+                    },
                   );
                 },
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Center(
                   child: Text(
-                    'Error loading wishlist: $error',
+                    'Error loading wishlist events: $error',
                     style: const TextStyle(color: Colors.red),
                   ),
                 ),
-                loading: () => const Center(child: CircularProgressIndicator()),
               ),
             ),
           ],
@@ -113,27 +87,13 @@ class WishlistPage extends ConsumerWidget {
     );
   }
 
-  Widget _sectionTitle(String label) {
-    return Text(
-      label,
-      style: AppTextStyles.sectionHeader.copyWith(fontSize: 17),
-    );
-  }
-
-  Widget _buildAddButton(BuildContext context, WidgetRef ref) {
+  Widget _buildAddEventButton(BuildContext context, WidgetRef ref) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: () => _showAddSheet(context, ref),
-        icon: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Symbols.add, size: 18, color: Colors.black),
-        ),
-        label: const Text('Add Wishlist Item'),
+        onPressed: () => _showAddEventSheet(context, ref),
+        icon: const Icon(Symbols.event_available, size: 18),
+        label: const Text('Add Wishlist Event'),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.black,
@@ -147,11 +107,106 @@ class WishlistPage extends ConsumerWidget {
     );
   }
 
-  void _showAddSheet(
-    BuildContext context,
-    WidgetRef ref, {
-    WishlistItem? initial,
+  Widget _eventCard({
+    required BuildContext context,
+    required WidgetRef ref,
+    required WishlistEventData eventData,
+    required String currency,
   }) {
+    final eventId = eventData.event.id;
+    final createdLabel = DateFormat(
+      'MMM d, yyyy',
+    ).format(eventData.event.createdAt);
+    final plannedCount = eventData.pendingCount;
+    final completedCount = eventData.completedCount;
+
+    return InkWell(
+      onTap: eventId == null
+          ? null
+          : () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => WishlistEventDetailPage(eventId: eventId),
+              ),
+            ),
+      borderRadius: BorderRadius.circular(AppRadius.large),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.large),
+          border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Symbols.event_note, color: AppColors.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    eventData.event.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.sectionHeader.copyWith(fontSize: 17),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Created $createdLabel',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$plannedCount planned • $completedCount completed',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$currency ${eventData.totalPrice.toStringAsFixed(2)}',
+                  style: AppTextStyles.transactionAmount.copyWith(
+                    color: AppColors.primary,
+                  ),
+                ),
+                IconButton(
+                  onPressed: eventId == null
+                      ? null
+                      : () => _showEventActions(context, ref, eventData),
+                  icon: const Icon(Symbols.more_horiz),
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _currency(WidgetRef ref) {
+    return ref.read(settingsProvider).asData?.value.currencySymbol ??
+        AppConstants.currencySymbol;
+  }
+
+  void _showAddEventSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.modalBackground,
@@ -161,25 +216,18 @@ class WishlistPage extends ConsumerWidget {
           top: Radius.circular(AppRadius.modalTop),
         ),
       ),
-      builder: (context) {
-        return AddWishlistModal(
-          initial: initial,
-          onSubmit: (data) {
-            final item = WishlistItem(
-              id: data.id,
-              name: data.name,
-              description: data.description,
-              estimatedPrice: data.estimatedPrice,
-              estimatedDate: data.estimatedDate,
-              isCompleted: initial?.isCompleted ?? false,
-              realCost: initial?.realCost,
-              completedDate: initial?.completedDate,
-            );
-            final notifier = ref.read(wishlistProvider.notifier);
-            if (data.id == null) {
-              notifier.add(item);
-            } else {
-              notifier.updateItem(item);
+      builder: (_) {
+        return AddWishlistEventModal(
+          onSubmit: (name) async {
+            final newEventId = await ref
+                .read(wishlistProvider.notifier)
+                .addEvent(name);
+            if (newEventId != null && context.mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => WishlistEventDetailPage(eventId: newEventId),
+                ),
+              );
             }
           },
         );
@@ -187,320 +235,108 @@ class WishlistPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _showItemActions(
-    BuildContext pageContext,
+  Future<void> _showEventActions(
+    BuildContext context,
     WidgetRef ref,
-    WishlistItem item,
-  ) {
-    return showModalBottomSheet<_WishlistSheetAction>(
-      context: pageContext,
+    WishlistEventData eventData,
+  ) async {
+    final action = await showModalBottomSheet<_WishlistEventAction>(
+      context: context,
       backgroundColor: AppColors.surfaceVariant,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
-        final estimatedDate = DateFormat(
-          'MMM d, yyyy',
-        ).format(item.estimatedDate);
-        final completedDate = item.completedDate == null
-            ? null
-            : DateFormat('MMM d, yyyy').format(item.completedDate!);
-        final status = item.isCompleted ? 'Completed' : 'Pending';
-        final shownCost = item.realCost ?? item.estimatedPrice;
-
         return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Wishlist Item Details',
-                  style: AppTextStyles.sectionHeader,
-                ),
-                const SizedBox(height: 12),
-                _wishlistDetailRow('Name', item.name),
-                _wishlistDetailRow('Description', item.description),
-                _wishlistDetailRow('Status', status),
-                _wishlistDetailRow('Estimated Date', estimatedDate),
-                _wishlistDetailRow(
-                  item.isCompleted ? 'Real Cost' : 'Estimated Cost',
-                  '${_currency(ref)} ${shownCost.toStringAsFixed(2)}',
-                ),
-                if (item.isCompleted && completedDate != null)
-                  _wishlistDetailRow('Completed Date', completedDate),
-                const SizedBox(height: 10),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Symbols.edit, color: AppColors.primary),
-                  title: const Text('Edit'),
-                  onTap: () =>
-                      Navigator.of(sheetContext).pop(_WishlistSheetAction.edit),
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    item.isCompleted ? Symbols.restart_alt : Symbols.task_alt,
-                    color: AppColors.primary,
-                  ),
-                  title: Text(
-                    item.isCompleted ? 'Edit Completion' : 'Mark as Completed',
-                  ),
-                  onTap: () => Navigator.of(
-                    sheetContext,
-                  ).pop(_WishlistSheetAction.complete),
-                ),
-                if (item.isCompleted)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(
-                      Symbols.undo,
-                      color: AppColors.textSecondary,
-                    ),
-                    title: const Text('Mark as Pending'),
-                    onTap: () => Navigator.of(
-                      sheetContext,
-                    ).pop(_WishlistSheetAction.pending),
-                  ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Symbols.delete, color: AppColors.expense),
-                  title: const Text('Delete'),
-                  onTap: () => Navigator.of(
-                    sheetContext,
-                  ).pop(_WishlistSheetAction.delete),
-                ),
-              ],
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Symbols.open_in_new),
+                title: const Text('Open Event'),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(_WishlistEventAction.open),
+              ),
+              ListTile(
+                leading: const Icon(Symbols.edit, color: AppColors.primary),
+                title: const Text('Edit Event'),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(_WishlistEventAction.edit),
+              ),
+              ListTile(
+                leading: const Icon(Symbols.delete, color: AppColors.expense),
+                title: const Text('Delete Event'),
+                onTap: () =>
+                    Navigator.of(sheetContext).pop(_WishlistEventAction.delete),
+              ),
+            ],
           ),
         );
       },
-    ).then((action) async {
-      if (!pageContext.mounted || action == null) return;
-      switch (action) {
-        case _WishlistSheetAction.edit:
-          _showAddSheet(pageContext, ref, initial: item);
-          break;
-        case _WishlistSheetAction.complete:
-          await _showCompletionSheet(pageContext, ref, item);
-          break;
-        case _WishlistSheetAction.pending:
-          final id = item.id;
-          if (id != null) {
-            await ref.read(wishlistProvider.notifier).markPending(id);
-          }
-          break;
-        case _WishlistSheetAction.delete:
-          await _confirmDelete(pageContext, ref, item);
-          break;
-      }
-    });
-  }
-
-  String _currency(WidgetRef ref) {
-    return ref.read(settingsProvider).asData?.value.currencySymbol ??
-        AppConstants.currencySymbol;
-  }
-
-  Widget _wishlistDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 116,
-            child: Text(
-              '$label:',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: AppTextStyles.body)),
-        ],
-      ),
     );
-  }
 
-  Future<void> _showCompletionSheet(
-    BuildContext context,
-    WidgetRef ref,
-    WishlistItem item,
-  ) async {
-    final currency =
-        ref.read(settingsProvider).asData?.value.currencySymbol ??
-        AppConstants.currencySymbol;
-    final amountController = TextEditingController(
-      text: (item.realCost ?? item.estimatedPrice).toStringAsFixed(2),
-    );
-    DateTime selectedDate = item.completedDate ?? DateTime.now();
+    if (!context.mounted || action == null) return;
+    final eventId = eventData.event.id;
+    if (eventId == null) return;
 
-    try {
-      final result = await showModalBottomSheet<_WishlistCompletionResult>(
+    if (action == _WishlistEventAction.open) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => WishlistEventDetailPage(eventId: eventId),
+        ),
+      );
+      return;
+    }
+
+    if (action == _WishlistEventAction.edit) {
+      showModalBottomSheet<void>(
         context: context,
-        isScrollControlled: true,
         backgroundColor: AppColors.modalBackground,
+        isScrollControlled: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppRadius.modalTop),
           ),
         ),
-        builder: (sheetContext) {
-          return StatefulBuilder(
-            builder: (sheetContext, setSheetState) {
-              final dateLabel = DateFormat('MMM d, yyyy').format(selectedDate);
-              return Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-                ),
-                child: SafeArea(
-                  top: false,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.isCompleted
-                              ? 'Edit Completion'
-                              : 'Mark as Completed',
-                          style: AppTextStyles.modalTitle,
-                        ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: amountController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'Real Cost',
-                            prefixText: '$currency ',
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        TextButton.icon(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: sheetContext,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2035),
-                            );
-                            if (picked != null && sheetContext.mounted) {
-                              setSheetState(() => selectedDate = picked);
-                            }
-                          },
-                          icon: const Icon(Symbols.calendar_month),
-                          label: Text('Completed Date: $dateLabel'),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () =>
-                                    Navigator.of(sheetContext).pop(),
-                                child: const Text('Cancel'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final parsed = double.tryParse(
-                                    amountController.text.trim(),
-                                  );
-                                  if (parsed == null || parsed < 0) {
-                                    ScaffoldMessenger.of(
-                                      sheetContext,
-                                    ).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Please enter a valid real cost.',
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  Navigator.of(sheetContext).pop(
-                                    _WishlistCompletionResult(
-                                      realCost: parsed,
-                                      completedDate: selectedDate,
-                                    ),
-                                  );
-                                },
-                                child: const Text('Save'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
+        builder: (_) {
+          return AddWishlistEventModal(
+            initialName: eventData.event.name,
+            onSubmit: (name) {
+              ref
+                  .read(wishlistProvider.notifier)
+                  .updateEventName(eventId: eventId, name: name);
             },
           );
         },
       );
-
-      if (result == null) return;
-
-      final id = item.id;
-      if (id == null) return;
-
-      await ref
-          .read(wishlistProvider.notifier)
-          .markCompleted(
-            id: id,
-            realCost: result.realCost,
-            completedDate: result.completedDate,
-          );
-    } finally {
-      amountController.dispose();
+      return;
     }
-  }
 
-  Future<void> _confirmDelete(
-    BuildContext context,
-    WidgetRef ref,
-    WishlistItem item,
-  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Delete item?'),
-        content: const Text('This action cannot be undone.'),
+        title: const Text('Delete event?'),
+        content: const Text(
+          'All wishlist items in this event will also be deleted.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-    if (confirmed == true && item.id != null) {
-      ref.read(wishlistProvider.notifier).remove(item.id!);
+
+    if (confirmed == true) {
+      await ref.read(wishlistProvider.notifier).removeEvent(eventId);
     }
   }
 }
 
-enum _WishlistSheetAction { edit, complete, pending, delete }
-
-class _WishlistCompletionResult {
-  const _WishlistCompletionResult({
-    required this.realCost,
-    required this.completedDate,
-  });
-
-  final double realCost;
-  final DateTime completedDate;
-}
+enum _WishlistEventAction { open, edit, delete }
