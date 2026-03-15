@@ -635,6 +635,32 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
     return rows;
   }
 
+  List<List<T>> _chunkList<T>(List<T> items, int chunkSize) {
+    if (chunkSize <= 0) {
+      return [items];
+    }
+    if (items.isEmpty) {
+      return <List<T>>[];
+    }
+
+    final chunks = <List<T>>[];
+    for (var i = 0; i < items.length; i += chunkSize) {
+      final end = (i + chunkSize < items.length) ? i + chunkSize : items.length;
+      chunks.add(items.sublist(i, end));
+    }
+    return chunks;
+  }
+
+  pw.Widget _buildPdfPageFooter(pw.Context context) {
+    return pw.Align(
+      alignment: pw.Alignment.centerRight,
+      child: pw.Text(
+        'Page ${context.pageNumber}',
+        style: _pdfTextStyle(size: 8, color: _PdfReportPalette.textSecondary),
+      ),
+    );
+  }
+
   pw.Widget _buildPdfHeader({
     required String generatedAt,
     required String dateFilter,
@@ -809,19 +835,13 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
   pw.Widget _buildPdfCategoryBreakdown({
     required List<_CategoryBreakdown> categories,
     required String currency,
+    required double totalFlow,
+    String title = 'Category Breakdown',
   }) {
-    final totalFlow = categories.fold<double>(
-      0,
-      (sum, item) => sum + item.totalFlow,
-    );
-
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(
-          'Category Breakdown',
-          style: _pdfTextStyle(size: 12, bold: true),
-        ),
+        pw.Text(title, style: _pdfTextStyle(size: 12, bold: true)),
         pw.SizedBox(height: 6),
         if (categories.isEmpty)
           pw.Container(
@@ -914,16 +934,21 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
   }
 
   pw.Widget _buildPdfTransactionsTable({
-    required List<Transaction> filtered,
+    required List<Transaction> rows,
+    required int startIndex,
+    required int totalRows,
     required Map<int, String> walletMap,
     required String currency,
     required DateFormat dateFormat,
   }) {
+    final displayStart = startIndex + 1;
+    final endIndex = startIndex + rows.length;
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(
-          'Filtered Transactions (${filtered.length} rows)',
+          'Filtered Transactions ($displayStart-$endIndex of $totalRows)',
           style: _pdfTextStyle(size: 12, bold: true),
         ),
         pw.SizedBox(height: 6),
@@ -961,8 +986,9 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                 ),
               ],
             ),
-            ...List.generate(filtered.length, (index) {
-              final tx = filtered[index];
+            ...List.generate(rows.length, (index) {
+              final tx = rows[index];
+              final globalRowIndex = startIndex + index;
               final walletName =
                   walletMap[tx.walletId] ?? 'Wallet #${tx.walletId}';
               final amountPrefix = tx.type == TransactionType.income
@@ -973,7 +999,7 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
                   : _PdfReportPalette.expense;
               return pw.TableRow(
                 decoration: pw.BoxDecoration(
-                  color: index.isEven
+                  color: globalRowIndex.isEven
                       ? PdfColors.white
                       : _PdfReportPalette.rowAlternate,
                 ),
@@ -1055,64 +1081,111 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
       final summary = _buildSummary(filtered);
       final categories = _buildCategoryBreakdown(filtered);
       final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
+      final totalCategoryFlow = categories.fold<double>(
+        0,
+        (sum, item) => sum + item.totalFlow,
+      );
+      final firstCategoryChunk = categories
+          .take(_PdfReportLayout.categoryRowsOnOverviewPage)
+          .toList();
+      final remainingCategoryChunks = _chunkList<_CategoryBreakdown>(
+        categories.skip(_PdfReportLayout.categoryRowsOnOverviewPage).toList(),
+        _PdfReportLayout.categoryRowsPerPage,
+      );
+      final transactionChunks = _chunkList<Transaction>(
+        filtered,
+        _PdfReportLayout.transactionRowsPerPage,
+      );
 
       pdf.addPage(
-        pw.MultiPage(
+        pw.Page(
           pageFormat: PdfPageFormat.a4,
-          // Allow large exports in debug mode (default is 20 pages).
-          maxPages: 500,
-          margin: const pw.EdgeInsets.fromLTRB(26, 24, 26, 24),
-          footer: (context) {
-            return pw.Container(
-              margin: const pw.EdgeInsets.only(top: 8),
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text(
-                'Page ${context.pageNumber} of ${context.pagesCount}',
-                style: _pdfTextStyle(
-                  size: 8,
-                  color: _PdfReportPalette.textSecondary,
-                ),
-              ),
-            );
-          },
+          margin: _PdfReportLayout.pageMargin,
           build: (context) {
-            return [
-              _buildPdfHeader(
-                generatedAt: generatedAt,
-                dateFilter: _dateRangeFilter.label,
-                typeFilter: _typeFilter?.name.toUpperCase() ?? 'ALL',
-                rowCount: filtered.length,
-              ),
-              pw.SizedBox(height: 12),
-              _buildPdfSummaryCards(
-                summary: summary,
-                savingWalletBalance: savingWalletBalance,
-                currency: currency,
-              ),
-              pw.SizedBox(height: 12),
-              _buildPdfCategoryBreakdown(
-                categories: categories,
-                currency: currency,
-              ),
-              pw.SizedBox(height: 12),
-              _buildPdfTransactionsTable(
-                filtered: filtered,
-                walletMap: walletMap,
-                currency: currency,
-                dateFormat: dateFormat,
-              ),
-              pw.SizedBox(height: 10),
-              pw.Text(
-                'End of report',
-                style: _pdfTextStyle(
-                  size: 8,
-                  color: _PdfReportPalette.textSecondary,
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _buildPdfHeader(
+                  generatedAt: generatedAt,
+                  dateFilter: _dateRangeFilter.label,
+                  typeFilter: _typeFilter?.name.toUpperCase() ?? 'ALL',
+                  rowCount: filtered.length,
                 ),
-              ),
-            ];
+                pw.SizedBox(height: 12),
+                _buildPdfSummaryCards(
+                  summary: summary,
+                  savingWalletBalance: savingWalletBalance,
+                  currency: currency,
+                ),
+                pw.SizedBox(height: 12),
+                _buildPdfCategoryBreakdown(
+                  categories: firstCategoryChunk,
+                  currency: currency,
+                  totalFlow: totalCategoryFlow,
+                  title: remainingCategoryChunks.isEmpty
+                      ? 'Category Breakdown'
+                      : 'Category Breakdown (Part 1)',
+                ),
+                pw.Spacer(),
+                _buildPdfPageFooter(context),
+              ],
+            );
           },
         ),
       );
+
+      for (var i = 0; i < remainingCategoryChunks.length; i++) {
+        final chunk = remainingCategoryChunks[i];
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: _PdfReportLayout.pageMargin,
+            build: (context) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _buildPdfCategoryBreakdown(
+                    categories: chunk,
+                    currency: currency,
+                    totalFlow: totalCategoryFlow,
+                    title: 'Category Breakdown (Part ${i + 2})',
+                  ),
+                  pw.Spacer(),
+                  _buildPdfPageFooter(context),
+                ],
+              );
+            },
+          ),
+        );
+      }
+
+      for (var i = 0; i < transactionChunks.length; i++) {
+        final chunk = transactionChunks[i];
+        final startIndex = i * _PdfReportLayout.transactionRowsPerPage;
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: _PdfReportLayout.pageMargin,
+            build: (context) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _buildPdfTransactionsTable(
+                    rows: chunk,
+                    startIndex: startIndex,
+                    totalRows: filtered.length,
+                    walletMap: walletMap,
+                    currency: currency,
+                    dateFormat: dateFormat,
+                  ),
+                  pw.Spacer(),
+                  _buildPdfPageFooter(context),
+                ],
+              );
+            },
+          ),
+        );
+      }
 
       final bytes = await pdf.save();
       final targetDir = await getMoneyManagerDownloadDirectory();
@@ -1125,15 +1198,6 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('PDF downloaded to: $filePath')));
-    } on pw.TooManyPagesException {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Report is too large to render at once. Please narrow the filters and try again.',
-          ),
-        ),
-      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -1249,6 +1313,18 @@ abstract final class _PdfReportFonts {
       'assets/fonts/NotoSansSinhala-Bold.ttf';
   static const String notoSansSymbols =
       'assets/fonts/NotoSansSymbols2-Regular.ttf';
+}
+
+abstract final class _PdfReportLayout {
+  static const pw.EdgeInsets pageMargin = pw.EdgeInsets.fromLTRB(
+    26,
+    24,
+    26,
+    24,
+  );
+  static const int categoryRowsOnOverviewPage = 10;
+  static const int categoryRowsPerPage = 28;
+  static const int transactionRowsPerPage = 24;
 }
 
 abstract final class _PdfReportPalette {
