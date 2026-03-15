@@ -1059,6 +1059,8 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
+          // Allow large exports in debug mode (default is 20 pages).
+          maxPages: 500,
           margin: const pw.EdgeInsets.fromLTRB(26, 24, 26, 24),
           footer: (context) {
             return pw.Container(
@@ -1123,6 +1125,15 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('PDF downloaded to: $filePath')));
+    } on pw.TooManyPagesException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Report is too large to render at once. Please narrow the filters and try again.',
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
