@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:path/path.dart' as p;
@@ -544,6 +545,30 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
     }).toList();
   }
 
+  Future<_PdfFontBundle> _loadPdfFontBundle() async {
+    final base = pw.Font.ttf(
+      await rootBundle.load(_PdfReportFonts.notoSansRegular),
+    );
+    final bold = pw.Font.ttf(
+      await rootBundle.load(_PdfReportFonts.notoSansBold),
+    );
+    final sinhalaRegular = pw.Font.ttf(
+      await rootBundle.load(_PdfReportFonts.notoSansSinhalaRegular),
+    );
+    final sinhalaBold = pw.Font.ttf(
+      await rootBundle.load(_PdfReportFonts.notoSansSinhalaBold),
+    );
+    final symbols = pw.Font.ttf(
+      await rootBundle.load(_PdfReportFonts.notoSansSymbols),
+    );
+
+    return _PdfFontBundle(
+      base: base,
+      bold: bold,
+      fallback: [sinhalaRegular, sinhalaBold, symbols],
+    );
+  }
+
   pw.TextStyle _pdfTextStyle({
     double size = 10,
     bool bold = false,
@@ -1018,7 +1043,14 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
           if (wallet.id != null) wallet.id!: wallet.name,
       };
 
-      final pdf = pw.Document();
+      final fonts = await _loadPdfFontBundle();
+      final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(
+          base: fonts.base,
+          bold: fonts.bold,
+          fontFallback: fonts.fallback,
+        ),
+      );
       final generatedAt = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
       final summary = _buildSummary(filtered);
       final categories = _buildCategoryBreakdown(filtered);
@@ -1183,6 +1215,29 @@ class _CategoryBreakdown {
 
   double get net => income - expense;
   double get totalFlow => income + expense;
+}
+
+class _PdfFontBundle {
+  const _PdfFontBundle({
+    required this.base,
+    required this.bold,
+    required this.fallback,
+  });
+
+  final pw.Font base;
+  final pw.Font bold;
+  final List<pw.Font> fallback;
+}
+
+abstract final class _PdfReportFonts {
+  static const String notoSansRegular = 'assets/fonts/NotoSans-Regular.ttf';
+  static const String notoSansBold = 'assets/fonts/NotoSans-Bold.ttf';
+  static const String notoSansSinhalaRegular =
+      'assets/fonts/NotoSansSinhala-Regular.ttf';
+  static const String notoSansSinhalaBold =
+      'assets/fonts/NotoSansSinhala-Bold.ttf';
+  static const String notoSansSymbols =
+      'assets/fonts/NotoSansSymbols2-Regular.ttf';
 }
 
 abstract final class _PdfReportPalette {
