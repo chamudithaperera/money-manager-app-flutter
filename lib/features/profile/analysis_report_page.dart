@@ -544,6 +544,459 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
     }).toList();
   }
 
+  pw.TextStyle _pdfTextStyle({
+    double size = 10,
+    bool bold = false,
+    PdfColor? color,
+  }) {
+    return pw.TextStyle(
+      fontSize: size,
+      fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+      color: color ?? _PdfReportPalette.textPrimary,
+    );
+  }
+
+  String _formatPdfAmount(String currency, double value) {
+    return '$currency${value.toStringAsFixed(2)}';
+  }
+
+  String _truncatePdfText(String value, int maxChars) {
+    final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (compact.isEmpty) {
+      return '-';
+    }
+    if (compact.length <= maxChars) {
+      return compact;
+    }
+    if (maxChars <= 3) {
+      return compact.substring(0, maxChars);
+    }
+    return '${compact.substring(0, maxChars - 3)}...';
+  }
+
+  List<_CategoryBreakdown> _buildCategoryBreakdown(List<Transaction> filtered) {
+    final map = <String, _ReportSummary>{};
+
+    for (final tx in filtered) {
+      final category = tx.category.trim().isEmpty
+          ? 'Uncategorized'
+          : tx.category.trim();
+      map.putIfAbsent(
+        category,
+        () => const _ReportSummary(income: 0, expense: 0),
+      );
+      final current = map[category]!;
+      map[category] = switch (tx.type) {
+        TransactionType.income => current.copyWith(
+          income: current.income + tx.amount,
+        ),
+        TransactionType.expense => current.copyWith(
+          expense: current.expense + tx.amount,
+        ),
+      };
+    }
+
+    final rows = map.entries
+        .map(
+          (entry) => _CategoryBreakdown(
+            category: entry.key,
+            income: entry.value.income,
+            expense: entry.value.expense,
+          ),
+        )
+        .toList();
+
+    rows.sort((a, b) => b.totalFlow.compareTo(a.totalFlow));
+    return rows;
+  }
+
+  pw.Widget _buildPdfHeader({
+    required String generatedAt,
+    required String dateFilter,
+    required String typeFilter,
+    required int rowCount,
+  }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(14),
+      decoration: pw.BoxDecoration(
+        color: _PdfReportPalette.headerSoft,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: _PdfReportPalette.brandSoftBorder),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Money Manager Report',
+                style: _pdfTextStyle(size: 21, bold: true),
+              ),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: _PdfReportPalette.brand,
+                  borderRadius: pw.BorderRadius.circular(16),
+                ),
+                child: pw.Text(
+                  'EXECUTIVE VIEW',
+                  style: _pdfTextStyle(
+                    size: 8,
+                    bold: true,
+                    color: PdfColors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Generated on $generatedAt',
+            style: _pdfTextStyle(
+              size: 10,
+              color: _PdfReportPalette.textSecondary,
+            ),
+          ),
+          pw.SizedBox(height: 10),
+          pw.Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _buildPdfFilterChip('Date: $dateFilter'),
+              _buildPdfFilterChip('Type: $typeFilter'),
+              _buildPdfFilterChip('Rows: $rowCount'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfFilterChip(String label) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.white,
+        borderRadius: pw.BorderRadius.circular(14),
+        border: pw.Border.all(color: _PdfReportPalette.border),
+      ),
+      child: pw.Text(
+        label,
+        style: _pdfTextStyle(size: 9, color: _PdfReportPalette.textSecondary),
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfSummaryCards({
+    required _ReportSummary summary,
+    required double savingWalletBalance,
+    required String currency,
+  }) {
+    final metrics = [
+      _PdfMetric(
+        label: 'Income',
+        value: summary.income,
+        tone: _PdfReportPalette.brand,
+        tint: _PdfReportPalette.brandSoft,
+      ),
+      _PdfMetric(
+        label: 'Expense',
+        value: summary.expense,
+        tone: _PdfReportPalette.expense,
+        tint: _PdfReportPalette.expenseSoft,
+      ),
+      _PdfMetric(
+        label: 'Saving Wallet',
+        value: savingWalletBalance,
+        tone: _PdfReportPalette.savings,
+        tint: _PdfReportPalette.savingsSoft,
+      ),
+      _PdfMetric(
+        label: 'Net Balance',
+        value: summary.balance,
+        tone: summary.balance >= 0
+            ? _PdfReportPalette.netPositive
+            : _PdfReportPalette.netNegative,
+        tint: summary.balance >= 0
+            ? _PdfReportPalette.netPositiveSoft
+            : _PdfReportPalette.netNegativeSoft,
+      ),
+    ];
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Executive Snapshot',
+          style: _pdfTextStyle(size: 12, bold: true),
+        ),
+        pw.SizedBox(height: 8),
+        pw.Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: metrics
+              .map(
+                (metric) =>
+                    _buildPdfMetricCard(metric: metric, currency: currency),
+              )
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildPdfMetricCard({
+    required _PdfMetric metric,
+    required String currency,
+  }) {
+    return pw.Container(
+      width: 118,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: pw.BoxDecoration(
+        color: metric.tint,
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: metric.tone),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            metric.label,
+            style: _pdfTextStyle(
+              size: 9,
+              color: _PdfReportPalette.textSecondary,
+            ),
+          ),
+          pw.SizedBox(height: 5),
+          pw.Text(
+            _formatPdfAmount(currency, metric.value),
+            style: _pdfTextStyle(size: 12, bold: true, color: metric.tone),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfCategoryBreakdown({
+    required List<_CategoryBreakdown> categories,
+    required String currency,
+  }) {
+    final totalFlow = categories.fold<double>(
+      0,
+      (sum, item) => sum + item.totalFlow,
+    );
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Category Breakdown',
+          style: _pdfTextStyle(size: 12, bold: true),
+        ),
+        pw.SizedBox(height: 6),
+        if (categories.isEmpty)
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              color: _PdfReportPalette.rowAlternate,
+              borderRadius: pw.BorderRadius.circular(6),
+              border: pw.Border.all(color: _PdfReportPalette.border),
+            ),
+            child: pw.Text(
+              'No category data available for the selected filters.',
+              style: _pdfTextStyle(
+                size: 9,
+                color: _PdfReportPalette.textSecondary,
+              ),
+            ),
+          )
+        else
+          pw.Table(
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2.3),
+              1: pw.FlexColumnWidth(1.5),
+              2: pw.FlexColumnWidth(1.5),
+              3: pw.FlexColumnWidth(1.5),
+              4: pw.FlexColumnWidth(0.9),
+            },
+            border: pw.TableBorder(
+              horizontalInside: pw.BorderSide(color: _PdfReportPalette.border),
+              verticalInside: pw.BorderSide(color: _PdfReportPalette.border),
+              top: pw.BorderSide(color: _PdfReportPalette.border),
+              bottom: pw.BorderSide(color: _PdfReportPalette.border),
+              left: pw.BorderSide(color: _PdfReportPalette.border),
+              right: pw.BorderSide(color: _PdfReportPalette.border),
+            ),
+            children: [
+              pw.TableRow(
+                decoration: pw.BoxDecoration(
+                  color: _PdfReportPalette.tableHeader,
+                ),
+                children: [
+                  _buildPdfHeaderCell('Category'),
+                  _buildPdfHeaderCell('Income'),
+                  _buildPdfHeaderCell('Expense'),
+                  _buildPdfHeaderCell('Net'),
+                  _buildPdfHeaderCell('Share'),
+                ],
+              ),
+              ...List.generate(categories.length, (index) {
+                final item = categories[index];
+                final share = totalFlow <= 0
+                    ? 0
+                    : (item.totalFlow / totalFlow * 100);
+                return pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                    color: index.isEven
+                        ? PdfColors.white
+                        : _PdfReportPalette.rowAlternate,
+                  ),
+                  children: [
+                    _buildPdfBodyCell(_truncatePdfText(item.category, 28)),
+                    _buildPdfBodyCell(
+                      _formatPdfAmount(currency, item.income),
+                      alignment: pw.Alignment.centerRight,
+                      color: _PdfReportPalette.brand,
+                    ),
+                    _buildPdfBodyCell(
+                      _formatPdfAmount(currency, item.expense),
+                      alignment: pw.Alignment.centerRight,
+                      color: _PdfReportPalette.expense,
+                    ),
+                    _buildPdfBodyCell(
+                      _formatPdfAmount(currency, item.net),
+                      alignment: pw.Alignment.centerRight,
+                      color: item.net >= 0
+                          ? _PdfReportPalette.netPositive
+                          : _PdfReportPalette.netNegative,
+                    ),
+                    _buildPdfBodyCell(
+                      '${share.toStringAsFixed(1)}%',
+                      alignment: pw.Alignment.centerRight,
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+      ],
+    );
+  }
+
+  pw.Widget _buildPdfTransactionsTable({
+    required List<Transaction> filtered,
+    required Map<int, String> walletMap,
+    required String currency,
+    required DateFormat dateFormat,
+  }) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Filtered Transactions (${filtered.length} rows)',
+          style: _pdfTextStyle(size: 12, bold: true),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Table(
+          columnWidths: const {
+            0: pw.FlexColumnWidth(1.8),
+            1: pw.FlexColumnWidth(2.2),
+            2: pw.FlexColumnWidth(1.8),
+            3: pw.FlexColumnWidth(1.1),
+            4: pw.FlexColumnWidth(1.9),
+            5: pw.FlexColumnWidth(1.6),
+          },
+          border: pw.TableBorder(
+            horizontalInside: pw.BorderSide(color: _PdfReportPalette.border),
+            verticalInside: pw.BorderSide(color: _PdfReportPalette.border),
+            top: pw.BorderSide(color: _PdfReportPalette.border),
+            bottom: pw.BorderSide(color: _PdfReportPalette.border),
+            left: pw.BorderSide(color: _PdfReportPalette.border),
+            right: pw.BorderSide(color: _PdfReportPalette.border),
+          ),
+          children: [
+            pw.TableRow(
+              decoration: pw.BoxDecoration(
+                color: _PdfReportPalette.tableHeader,
+              ),
+              children: [
+                _buildPdfHeaderCell('Date'),
+                _buildPdfHeaderCell('Title'),
+                _buildPdfHeaderCell('Category'),
+                _buildPdfHeaderCell('Type'),
+                _buildPdfHeaderCell('Wallet'),
+                _buildPdfHeaderCell(
+                  'Amount',
+                  alignment: pw.Alignment.centerRight,
+                ),
+              ],
+            ),
+            ...List.generate(filtered.length, (index) {
+              final tx = filtered[index];
+              final walletName =
+                  walletMap[tx.walletId] ?? 'Wallet #${tx.walletId}';
+              final amountPrefix = tx.type == TransactionType.income
+                  ? '+'
+                  : '-';
+              final amountColor = tx.type == TransactionType.income
+                  ? _PdfReportPalette.brand
+                  : _PdfReportPalette.expense;
+              return pw.TableRow(
+                decoration: pw.BoxDecoration(
+                  color: index.isEven
+                      ? PdfColors.white
+                      : _PdfReportPalette.rowAlternate,
+                ),
+                children: [
+                  _buildPdfBodyCell(dateFormat.format(tx.date)),
+                  _buildPdfBodyCell(_truncatePdfText(tx.title, 26)),
+                  _buildPdfBodyCell(_truncatePdfText(tx.category, 20)),
+                  _buildPdfBodyCell(tx.type.name.toUpperCase()),
+                  _buildPdfBodyCell(_truncatePdfText(walletName, 22)),
+                  _buildPdfBodyCell(
+                    '$amountPrefix${_formatPdfAmount(currency, tx.amount)}',
+                    alignment: pw.Alignment.centerRight,
+                    color: amountColor,
+                    bold: true,
+                  ),
+                ],
+              );
+            }),
+          ],
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildPdfHeaderCell(String text, {pw.Alignment? alignment}) {
+    return pw.Container(
+      alignment: alignment ?? pw.Alignment.centerLeft,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+      child: pw.Text(text, style: _pdfTextStyle(size: 9.5, bold: true)),
+    );
+  }
+
+  pw.Widget _buildPdfBodyCell(
+    String text, {
+    pw.Alignment? alignment,
+    PdfColor? color,
+    bool bold = false,
+  }) {
+    return pw.Container(
+      alignment: alignment ?? pw.Alignment.centerLeft,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+      child: pw.Text(
+        text,
+        style: _pdfTextStyle(size: 9, bold: bold, color: color),
+      ),
+    );
+  }
+
   Future<void> _downloadPdfReport(
     List<Transaction> filtered,
     String currency,
@@ -568,95 +1021,58 @@ class _AnalysisReportPageState extends ConsumerState<AnalysisReportPage> {
       final pdf = pw.Document();
       final generatedAt = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
       final summary = _buildSummary(filtered);
+      final categories = _buildCategoryBreakdown(filtered);
       final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.fromLTRB(26, 24, 26, 24),
+          footer: (context) {
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(top: 8),
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(
+                'Page ${context.pageNumber} of ${context.pagesCount}',
+                style: _pdfTextStyle(
+                  size: 8,
+                  color: _PdfReportPalette.textSecondary,
+                ),
+              ),
+            );
+          },
           build: (context) {
             return [
-              pw.Text(
-                'Money Manager Report',
-                style: pw.TextStyle(
-                  fontSize: 20,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              pw.Text('Generated: $generatedAt'),
-              pw.Text('Date filter: ${_dateRangeFilter.label}'),
-              pw.Text(
-                'Type filter: ${_typeFilter?.name.toUpperCase() ?? 'ALL'}',
+              _buildPdfHeader(
+                generatedAt: generatedAt,
+                dateFilter: _dateRangeFilter.label,
+                typeFilter: _typeFilter?.name.toUpperCase() ?? 'ALL',
+                rowCount: filtered.length,
               ),
               pw.SizedBox(height: 12),
-              pw.Container(
-                padding: const pw.EdgeInsets.all(10),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey400),
-                  borderRadius: const pw.BorderRadius.all(
-                    pw.Radius.circular(4),
-                  ),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'Summary',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      'Income: $currency${summary.income.toStringAsFixed(2)}',
-                    ),
-                    pw.Text(
-                      'Expense: $currency${summary.expense.toStringAsFixed(2)}',
-                    ),
-                    pw.Text(
-                      'Saving Wallet Balance: $currency${savingWalletBalance.toStringAsFixed(2)}',
-                    ),
-                    pw.Text(
-                      'Net Balance: $currency${summary.balance.toStringAsFixed(2)}',
-                    ),
-                  ],
-                ),
+              _buildPdfSummaryCards(
+                summary: summary,
+                savingWalletBalance: savingWalletBalance,
+                currency: currency,
               ),
               pw.SizedBox(height: 12),
-              pw.Text(
-                'Filtered Details (${filtered.length} rows)',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              _buildPdfCategoryBreakdown(
+                categories: categories,
+                currency: currency,
               ),
-              pw.SizedBox(height: 8),
-              pw.TableHelper.fromTextArray(
-                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                headers: [
-                  'Date',
-                  'Title',
-                  'Category',
-                  'Type',
-                  'Wallet',
-                  'Amount',
-                ],
-                data: filtered.map((tx) {
-                  final walletName =
-                      walletMap[tx.walletId] ?? 'Wallet #${tx.walletId}';
-                  return [
-                    dateFormat.format(tx.date),
-                    tx.title,
-                    tx.category,
-                    tx.type.name,
-                    walletName,
-                    '$currency${tx.amount.toStringAsFixed(2)}',
-                  ];
-                }).toList(),
-                cellAlignment: pw.Alignment.centerLeft,
-                cellPadding: const pw.EdgeInsets.all(6),
-                border: const pw.TableBorder(
-                  horizontalInside: pw.BorderSide(color: PdfColors.grey300),
-                  verticalInside: pw.BorderSide(color: PdfColors.grey300),
-                  top: pw.BorderSide(color: PdfColors.grey400),
-                  bottom: pw.BorderSide(color: PdfColors.grey400),
-                  left: pw.BorderSide(color: PdfColors.grey400),
-                  right: pw.BorderSide(color: PdfColors.grey400),
+              pw.SizedBox(height: 12),
+              _buildPdfTransactionsTable(
+                filtered: filtered,
+                walletMap: walletMap,
+                currency: currency,
+                dateFormat: dateFormat,
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text(
+                'End of report',
+                style: _pdfTextStyle(
+                  size: 8,
+                  color: _PdfReportPalette.textSecondary,
                 ),
               ),
             ];
@@ -738,6 +1154,55 @@ class _ReportSummary {
       expense: expense ?? this.expense,
     );
   }
+}
+
+class _PdfMetric {
+  const _PdfMetric({
+    required this.label,
+    required this.value,
+    required this.tone,
+    required this.tint,
+  });
+
+  final String label;
+  final double value;
+  final PdfColor tone;
+  final PdfColor tint;
+}
+
+class _CategoryBreakdown {
+  const _CategoryBreakdown({
+    required this.category,
+    required this.income,
+    required this.expense,
+  });
+
+  final String category;
+  final double income;
+  final double expense;
+
+  double get net => income - expense;
+  double get totalFlow => income + expense;
+}
+
+abstract final class _PdfReportPalette {
+  static final PdfColor brand = PdfColor.fromInt(0xFF28C76F);
+  static final PdfColor brandSoft = PdfColor.fromInt(0xFFEAF8F0);
+  static final PdfColor brandSoftBorder = PdfColor.fromInt(0xFFC7EDD6);
+  static final PdfColor expense = PdfColor.fromInt(0xFFEA5455);
+  static final PdfColor expenseSoft = PdfColor.fromInt(0xFFFDECEC);
+  static final PdfColor savings = PdfColor.fromInt(0xFF8B5CF6);
+  static final PdfColor savingsSoft = PdfColor.fromInt(0xFFF1ECFF);
+  static final PdfColor netPositive = PdfColor.fromInt(0xFF0F766E);
+  static final PdfColor netPositiveSoft = PdfColor.fromInt(0xFFE6F9F7);
+  static final PdfColor netNegative = PdfColor.fromInt(0xFFB91C1C);
+  static final PdfColor netNegativeSoft = PdfColor.fromInt(0xFFFEECEC);
+  static final PdfColor headerSoft = PdfColor.fromInt(0xFFF7FBF8);
+  static final PdfColor textPrimary = PdfColor.fromInt(0xFF111827);
+  static final PdfColor textSecondary = PdfColor.fromInt(0xFF6B7280);
+  static final PdfColor border = PdfColor.fromInt(0xFFE5E7EB);
+  static final PdfColor tableHeader = PdfColor.fromInt(0xFFF3F4F6);
+  static final PdfColor rowAlternate = PdfColor.fromInt(0xFFF9FAFB);
 }
 
 enum _DateRangeFilter { allTime, thisMonth, last3Months, thisYear }
